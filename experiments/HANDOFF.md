@@ -1,5 +1,25 @@
 # Handoff: pyBKT correctness, speed and live-update work
 
+> **Superseded on 2026-10-09.** This handoff is kept as a record of the research, but it is no
+> longer the working plan. A narrower plan now sets the order, with measurable targets and a short queue.
+> Corrections from a fact-check against upstream master `cc1682e`:
+> - #65: zpardos asked for `PYBKT_REQUIRE_CPP` to stay off by default and be documented. Master already
+>   does both (#67), so no README PR is needed.
+> - Forks: 87 in total, 16 with their own commits (not 13). flixstn only silences the division warning;
+>   gengyabc guards the division.
+> - `noerr`: its fallback index 1 is out of bounds when only one template was fitted.
+> - #51 merged on 2026-03-04, not in 2024.
+> - The leak fixed by `34e3d21` is in `predict_onestep_states.cpp:82`; `E_step.cpp` leaks only one Python int.
+> - Tied `order_id`, pure Python: parameters differ by 0.54 (not 0.63). Compiled: 0.14, as stated.
+> - OpenMP on a busy machine: about 8 ms per call with some cores busy; 40 to 90 ms with every core busy.
+> - Vectorized NumPy E-step: 29 to 54 times faster than the default pure-Python fit, depending on skill
+>   size; matches C++ to about 1e-14.
+> - Citations: Khajah et al. 2016 does not discuss gradient fitters. Beck & Chang 2007 names the
+>   identifiability problem but does not show that priors fix it. The SQUAREM speedup and the
+>   plausibility rates are this branch's own measurements, not results from the papers.
+> - Since this was written: PR #74 (test suite) is open, the #70 and #72 markers are gone, and
+>   `test/property-tests` and `fix/em-fit-numpy-2` are stacked on it.
+
 Start here. This file is the plan another agent can pick up and run; it is current as of 2026-10-09.
 - `PLANNING.md` is the decision log and the reasoning behind this plan (inventory, critiques, rounds of
   owner questions).
