@@ -49,9 +49,12 @@ def squarem_fit(model, data, tol, maxiter, parallel, fixed):
     num_subparts = data["data"].shape[0]
     num_resources = len(model["learns"])
     log_likelihoods = []
+    returned = None
 
     def em_map(params):
-        set_params(model, params)
+        nonlocal returned
+        if params is not returned: # the M-step that returned params left them in the model
+            set_params(model, params)
         result = E_step.run(data, model, 1, int(parallel), fixed)
         for j in range(num_resources):
             result['all_trans_softcounts'][j] = result['all_trans_softcounts'][j].transpose()
@@ -59,7 +62,8 @@ def squarem_fit(model, data, tol, maxiter, parallel, fixed):
             result['all_emission_softcounts'][j] = result['all_emission_softcounts'][j].transpose()
         log_likelihoods.append(np.asarray(result['total_loglike']).item())
         M_step.run(model, result['all_trans_softcounts'], result['all_emission_softcounts'], result['all_initial_softcounts'], fixed = fixed)
-        return get_params(model), log_likelihoods[-1]
+        returned = get_params(model)
+        return returned, log_likelihoods[-1]
 
     eps, step_min, step_max = 1e-6, 1.0, 1.0
     params0 = get_params(model)
@@ -68,8 +72,8 @@ def squarem_fit(model, data, tol, maxiter, parallel, fixed):
         params2, ll1 = em_map(params1)
         r = params1 - params0
         v = params2 - 2 * params1 + params0
-        v_norm = np.linalg.norm(v)
-        alpha = -np.linalg.norm(r) / v_norm if v_norm > 0 else -step_min
+        v_norm = np.sqrt(v @ v)
+        alpha = -np.sqrt(r @ r) / v_norm if v_norm > 0 else -step_min
         alpha = max(min(alpha, -step_min), -step_max)
         # Parameters that EM leaves unchanged, such as fixed ones or forgets in a
         # model without forgetting, keep their exact value instead of being clipped.
@@ -95,9 +99,13 @@ def get_params(model):
 
 def set_params(model, params):
     num_resources, num_subparts = len(model['learns']), len(model['guesses'])
-    learns, forgets, guesses, slips = np.split(params[:-1], np.cumsum([num_resources, num_resources, num_subparts]))
+    learns, forgets = params[:num_resources], params[num_resources:2 * num_resources]
+    guesses, slips = params[2 * num_resources:-1 - num_subparts], params[-1 - num_subparts:-1]
     model['learns'], model['forgets'], model['guesses'], model['slips'] = learns, forgets, guesses, slips
-    model['As'] = np.array([[1 - learns, forgets], [learns, 1 - forgets]]).transpose(2, 0, 1)
-    model['emissions'] = np.array([[1 - guesses, guesses], [slips, 1 - slips]]).transpose(2, 0, 1)
+    As = np.empty((num_resources, 2, 2))
+    As[:, 0, 0], As[:, 0, 1], As[:, 1, 0], As[:, 1, 1] = 1 - learns, forgets, learns, 1 - forgets
+    emissions = np.empty((num_subparts, 2, 2))
+    emissions[:, 0, 0], emissions[:, 0, 1], emissions[:, 1, 0], emissions[:, 1, 1] = 1 - guesses, guesses, slips, 1 - slips
+    model['As'], model['emissions'] = As, emissions
     model['prior'] = params[-1]
     model['pi_0'] = np.array([[1 - params[-1]], [params[-1]]])
