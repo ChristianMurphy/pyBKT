@@ -23,7 +23,7 @@ class Model:
     MODELS_BKT = ['multilearn', 'multiprior', 'multipair', 'multigs']
     MODEL_ARGS = ['parallel', 'num_fits', 'seed', 'defaults'] + MODELS_BKT
     FIT_ARGS = ['skills', 'num_fits', 'defaults', 'fixed',
-                            'parallel', 'forgets', 'preload'] + MODELS_BKT
+                            'parallel', 'forgets', 'preload', 'solver'] + MODELS_BKT
     CV_ARGS = FIT_ARGS + ['folds', 'seed']
     DEFAULTS = {'num_fits': 5,
                 'defaults': None,
@@ -33,6 +33,7 @@ class Model:
                 'folds': 5,
                 'forgets': False,
                 'fixed': None,
+                'solver': 'em',
                 'model_type': [False] * len(MODELS_BKT)}
     DEFAULTS_BKT = {'order_id': 'order_id',
                     'skill_name': 'skill_name',
@@ -68,6 +69,7 @@ class Model:
         Fits a BKT model given model and data information. Takes arguments skills,
         number of initialization fits, default column names (i.e. correct, skill_name),
         parallelization, and model types. Resets model state if uninitialized.
+        solver = 'squarem' accelerates EM with SQUAREM; the default 'em' runs plain EM.
 
         >>> model = Model(seed = 42)
         >>> model.fit(data_path = 'as.csv', forgets = True, skills = 'Box and Whisker')
@@ -99,7 +101,7 @@ class Model:
         self._check_data(data_path, data)
         self._check_args(Model.FIT_ARGS, kwargs)
         self._update_param(['skills', 'num_fits', 'defaults', 'fixed',
-                            'parallel', 'forgets'], kwargs)
+                            'parallel', 'forgets', 'solver'], kwargs)
         if self.fit_model is None or self.fit_model == {}:
             self.fit_model = {}
         if self.fit_model == {} or (self.manual_param_init and self.fit_model):
@@ -237,7 +239,7 @@ class Model:
 
         self._check_args(Model.CV_ARGS, kwargs)
         self._update_param(['skills', 'num_fits', 'defaults', 
-                            'parallel', 'forgets', 'seed', 'folds'], kwargs)
+                            'parallel', 'forgets', 'seed', 'folds', 'solver'], kwargs)
         self._update_param('model_type', self._update_defaults(kwargs))
         metric_vals = {}
         if not self.manual_param_init:
@@ -421,7 +423,7 @@ class Model:
                     if not isinstance(self.fixed[skill][var], bool):
                         optional_args['fixed'][var] = self.fixed[skill][var]
             if not preload:
-                fitmodel, log_likelihoods = EM_fit.EM_fit(fitmodel, data, parallel = self.parallel, **optional_args)
+                fitmodel, log_likelihoods = EM_fit.EM_fit(fitmodel, data, parallel = self.parallel, solver = self.solver, **optional_args)
                 if log_likelihoods[-1] > best_likelihood:
                     best_likelihood = log_likelihoods[-1]
                     best_model = fitmodel
