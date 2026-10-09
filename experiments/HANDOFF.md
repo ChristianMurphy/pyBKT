@@ -61,7 +61,9 @@ that fails to import with scikit-learn ≥ 1.8 and fails to fit on NumPy 2.
 | #39 (closed by #41) | seeded C++ fits not reproducible; leftover differences called "floating-point error" | B6 (that leftover is the unordered parallel sum) |
 | #32 (closed, 2022) | C++ build fails on Windows even with MSVC; "we do not officially support … Windows" | A5, asked in #65 first |
 | #26 (closed, 2021) | slow outside Colab; answer: check whether the C++ build is installed | Train A, C1 |
-| #29 (closed), #50 (open) | `Roster` with multigs models fails | look at it with E1 (Roster internals), not before |
+| #29 (closed), #50, #52 (open), #47 (open), #45 (open) | class values breaking later: `Roster` with multigs models (#29, #50, #52), multigs `evaluate` IndexError on sequence-level splits (#47), multilearn `crossvalidate` vs `predict` (#45) | CV (class-value cluster), wave 2 after E1; reproduce first |
+| #42 (closed), #11 (closed, 2021), #51 (merged, 2024) | pure Python parallelizes with a process pool; the pool broke on Windows twice | C1 removes the pool |
+| #61 (closed with 1.4.3) | fit failed on Windows 10 ("invalid value encountered") | context for Windows users |
 | #54 (open) | `random.randint(0, 1e8)`; fixed by merged #48 and #56 | comment that it can be closed |
 | #37, #60 (closed) | "latest pyBKT not built", "new pip release" | precedent: release requests get answered |
 
@@ -94,6 +96,10 @@ that fails to import with scikit-learn ≥ 1.8 and fails to fit on NumPy 2.
   opt-in features.
 - Evidence for upstream readers goes on a clean, neutrally named fork branch (default name
   `evidence/bkt-research`; confirm with the owner before creating it).
+- Round 6: the **class-value cluster** (#29, #45, #47, #50, #52) goes in wave 2 after E1, reproduced first;
+  the **OpenMP default for small calls** (B8) moves into wave 2 with the C++ fixes; the pure-Python
+  **process pool** is fixed only by the vectorized E-step (C1), no separate pool PR; the Rust discussion
+  proposes **`bkt_lean` plus rayon** (work stealing, measured not to stall under contention).
 
 ## 3. Discussion plan: topic issues in three waves
 
@@ -117,7 +123,9 @@ flowchart LR
     I8["New bug: tied order_id"]
     I9["New bug: multipair keys<br/>across pandas versions"]
     I10["#55 comment (links #57):<br/>live mastery update API"]
+    I15["Class-value cluster:<br/>comments on #50, #47, #45<br/>after reproducing"]
     I5 --> I6 --> I7 --> I8 --> I9
+    I10 --> I15
   end
   subgraph W3["Wave 3: after the fixes"]
     I11["New: faster, same results"]
@@ -145,22 +153,23 @@ flowchart TD
   A2 -.->|if welcomed| T1["T1 one Python source tree"]
   B1 --> B5["B5 float log-likelihood"]
   B5 --> B6["B6 deterministic C++ sums"]
+  B6 --> B8["B8 OpenMP: one thread<br/>below ~50k answers"]
   T1 -.-> B2
   A2 --> B2["B2 escape skill-name lists"]
   B2 --> B4["B4 missing user ids"]
   B4 --> B3["B3 stable order for ties"]
   B3 --> B7["B7 multipair keys"]
   A2 --> E1["E1 live update function<br/>(Roster uses it)"]
+  E1 --> CV["CV class-value cluster<br/>#29 #45 #47 #50 #52<br/>(reproduce first)"]
   B3 --> C3["C3 vectorized convert_data<br/>(keeps the fixes)"]
   B1 --> C2["C2 forward-only predict"]
   A1 --> C1["C1 vectorized pure-Python E-step"]
-  B6 --> C4["C4 skip alpha, narrow dtypes"]
+  B8 --> C4["C4 skip alpha, narrow dtypes"]
   C3 --> C7["C7 read only needed columns"]
   C3 --> C6["C6 sparse multigs, 64-bit indices"]
   C4 --> C6
   C3 --> C8["C8 convert once"]
-  C8 --> C9["C9 restarts in one pass"]
-  C9 --> C5["C5 parallel policy<br/>(after measurement)"]
+  C8 --> C9["C9 restarts in one pass,<br/>skills in parallel"]
   A2 --> D1["D1 fit diagnostics"]
   D1 --> D2["D2 Beta priors"]
   D1 --> D3["D3 SQUAREM"]
@@ -172,8 +181,8 @@ flowchart TD
   classDef w2 fill:#dcfce7,stroke:#166534,color:#052e16
   classDef w3 fill:#fef3c7,stroke:#92400e,color:#3b1d02
   class A1,A2,A4,REL,B1 w1
-  class A5,T1,B2,B3,B4,B5,B6,B7,E1 w2
-  class C1,C2,C3,C4,C5,C6,C7,C8,C9,D1,D2,D3,E2,E3,E4,E5 w3
+  class A5,T1,B2,B3,B4,B5,B6,B7,B8,E1,CV w2
+  class C1,C2,C3,C4,C6,C7,C8,C9,D1,D2,D3,E2,E3,E4,E5 w3
 ```
 
 Blue is wave 1, green wave 2, amber wave 3. Dashed edges apply only if the maintainer welcomes the single
@@ -181,9 +190,10 @@ source tree. Several PRs edit the same files, so merge them in this order:
 
 | File | PRs, in merge order |
 | --- | --- |
-| `fit/E_step.cpp` | B1 → B5 → B6 → C4 → C6 → C5 (E5 later) |
+| `fit/E_step.cpp` | B1 → B5 → B6 → B8 → C4 → C6 (E5 later) |
 | `util/data_helper.py` (two copies until T1) | B2 → B4 → B3 → B7 → C3 → C6 / C7 |
-| `models/Model.py` (two copies) | E1, D1 (additions) → B7 → C8 → C9 |
+| `models/Model.py` (two copies) | E1, D1 (additions) → CV → B7 → C8 → C9 |
+| `models/Roster.py` (two copies) | E1 → CV |
 | `fit/EM_fit.py` (two copies that differ) | A1 → B5 → C1 → C4 → C9 → D3 |
 | `tests/reference/*.json` | one result-changing PR at a time; its JSON diff is the evidence |
 
@@ -270,6 +280,20 @@ comment. See `ISSUE_DRAFTS.md`.
 - Verify: identical hashes over 20 runs and 1–16 threads (method: `rust/py/determinism.py`; C++ gave 1–3
   distinct results in 20 runs on ASSISTments, 6–7 on synthetic data).
 
+**B8 · OpenMP default for small calls** · `[same]` up to the last bits · after B6 · no new issue; the PR
+carries the measurements
+- With every core busy, each OpenMP E-step call waits about 8 ms whatever its size: 1,800 answers take
+  8.0 ms against 93 µs serial; 22,900 answers 8.0 ms against 1.2 ms (`omp_controlled.sh`,
+  `results/omp_controlled.csv`). Idle, OpenMP helps 1.7–2.9x from about 1,800 answers. Real data has many
+  small skills, so default users on shared machines (other jobs, notebooks, parallel workers) pay this.
+- `schedule(dynamic, 16)` was tried and doesn't help (`results/omp_dynamic.csv`): the stall is the
+  fork-join barrier, where every thread must arrive, not the work split.
+- Change: `num_threads(1)` below a threshold (start at 50,000 answers; calibrate with
+  `omp_controlled.sh` idle and loaded), keep OpenMP above it. Parallelism across skills is C9's job.
+- Same for `predict_onestep_states.cpp`'s `parallel for`.
+- Verify: harness passes; `omp_controlled.sh` before and after, idle and with 4 busy processes; the README
+  documents `OMP_NUM_THREADS` and `parallel=False` for busy machines.
+
 **E1 · Live mastery updates** · `[opt-in]` · after the #55 comment
 - `Roster.update` (2021) already updates one student per answer, but it swaps the shared model's prior to
   the student's state, runs the full predict path on the new answers, then restores the prior
@@ -280,7 +304,16 @@ comment. See `ISSUE_DRAFTS.md`.
 - Evidence: `live_bench.py` (2.4 µs per answer in plain Python; matches `predict` to 1.6e-9 on 294k
   answers; the textbook `1 − P(correct)` form loses precision near 0 and 1).
 - Verify: equals `predict`'s state predictions on the harness data; equals today's `Roster` outputs.
-- Look at #50 (Roster with multigs) while in this code, as a separate PR.
+
+**CV · Class-value cluster** · investigate first · after E1 · issues #29, #45, #47, #50, #52
+- Five reports of multigs/multilearn class values breaking after `fit`: `Roster` built from a multigs
+  model fails with a broadcast `ValueError` (#29, #50; #52 after loading a model with joblib, the
+  traceback points at `Roster.process_data` passing `True` instead of class names); `evaluate` raises
+  `IndexError` on sequence-level splits with multigs (#47); `crossvalidate` predicts 0.5 for unseen
+  multilearn classes where `predict` raises (#45).
+- Step 1: reproduce each on public data (ASSISTments or the CT sample), one script per symptom, like the
+  other repros. Step 2: group by cause; one PR and one comment on the matching issue per cause.
+- None of this was in the research; no claim about causes yet.
 
 ### Wave 3 (cards are shorter; refresh numbers before posting)
 
@@ -288,13 +321,12 @@ comment. See `ISSUE_DRAFTS.md`.
 | --- | --- | --- | --- | --- |
 | C2 | forward-only predict | `fda90e7` + `E_step.predict` from `34e3d21` | 1M rows 60 → 14 ms; multigs × 50 templates 3.27 → 0.12 s, half the peak memory | `[same]` |
 | C3 | vectorized `convert_data` | `37f57be`, re-applied after B2–B4/B3 | 5M rows/100 skills 31.6 → 2.0 s; multipair 100k 17.2 → 0.06 s | must keep the fixed behaviour; identical output across 46 input shapes |
-| C1 | vectorized pure-Python E-step | `np_estep.py` (posterior-form backward pass) | ASSISTments fit 28.7 → 0.54 s (54x), matches C++ to 3.4e-15 | scaled-β form overflows on long sequences; use the posterior form |
+| C1 | vectorized pure-Python E-step | `np_estep.py` (posterior-form backward pass) | 20–24x faster than pyBKT's default (a process pool per E-step), 32–40x than serial; matches C++ to 3.4e-15; removes the process pool that broke on Windows (#11, #51) | decided: this is the only fix for the pool (about 25 ms per iteration; small skills 9x slower than serial); scaled-β form overflows on long sequences, use the posterior form |
 | C4 | skip `alpha` during EM; int8 answers, int32 resources; alpha's labelled shape | ROADMAP | 16 B/answer per iteration not written | |
 | C7 | read only needed columns | `load_bench.py` | 20M rows 60.8 s / 5.0 GB → 33.0 s / 2.6 GB | keep every column the model type needs |
 | C8 | convert once (prepared data); stop sorting the caller's DataFrame in place | `lean_gap.py` | per-call copies cost ~40% of a fast E-step | `fit` reorders the caller's DataFrame today |
-| C9 | all `num_fits` restarts in one pass; skills in parallel | ROADMAP | `num_fits=5` takes 4.3x one fit | keep random draws in today's order |
+| C9 | all `num_fits` restarts in one pass; skills in parallel (the rest of the old C5) | ROADMAP, `results/omp_controlled.csv` | `num_fits=5` takes 4.3x one fit; one parallel region across skills amortizes the 8 ms barrier stall | keep random draws in today's order |
 | C6 | sparse multigs, 64-bit indices | ROADMAP | 1.47 GB → ~2 MB (all ASSISTments skills merged) | |
-| C5 | serial for small E-steps, parallel across skills | `e2e_pybkt.py`, `omp_overhead.py` | up to 6x under load; 7.9 µs/call idle | **measure first** on an idle machine, then with load |
 | D1 | fit diagnostics (warnings) | `degeneracy_audit.py` | 9.1% implausible, 11.8% at 0/1, 74 of 110 skills' restarts disagree | addresses #45 and the #21/#27/#36/#38 pattern |
 | D2 | Beta priors, `priors=` | `map_em.py`; Beck & Chang 2007 | stuck at 0/1: 15.3% → 0%; held-out ll slightly better | defaults need choosing |
 | D3 | SQUAREM, `accelerate=` | `squarem.py`; Varadhan & Roland 2008 | 1.4–1.7x fewer E-steps; never worse in 48 runs | needs step cap and monotone guard |
@@ -362,12 +394,66 @@ flowchart LR
 | Theme | What the experiments showed | Consequence for the plan |
 | --- | --- | --- |
 | Load-bound vs compute-bound work | Reading and converting 20M rows takes 60.8 s; one C++ E-step pass over them takes about 0.3–1.1 s (14–53 ns per answer). A default fit makes many passes (iterations × 5 restarts), so fits are compute-bound while `predict` and other one-pass work is load-bound. The dense multigs matrix (1.47 GB) and per-call copies (~40% of a fast Rust E-step) cost in both | one-pass work: cheaper reading and convert-once (C7, C8, E2); fits: fewer passes (C9, D3) and a faster kernel (C1, R); both: compact layouts (C4, C6) |
-| Parallelize at the right level | OpenMP inside small E-steps cost milliseconds per call under load (7.9 µs idle, unconfirmed under controlled load); real data has many small skills; in Rust, rayon's work stealing and plain scoped threads performed alike on these workloads | parallel across skills and restarts (C9), a size threshold (C5, after measuring); work stealing should suit mixed performance/efficiency cores (R; not measured here) |
+| Parallelize at the right level | Controlled (2026-10-09): idle, OpenMP helps 1.7–2.9x; with every core busy, each OpenMP call waits ~8 ms whatever its size, and dynamic scheduling doesn't help. Rust with rayon's work stealing doesn't stall (56 µs vs 8 ms at 1,800 answers); Rust threads spawned per call do (4 ms). Pure Python's per-iteration process pool costs ~25 ms per iteration. Real data has many small skills | one thread below a size threshold (B8), parallel across skills and restarts (C9), no process pool (C1), rayon in the Rust design (R). Mixed performance/efficiency cores are still unmeasured |
 | Numerical form matters | the scaled-β backward pass overflowed (NaN) on a 3,585-answer student; the textbook live update loses precision; SQUAREM without its step cap jumped to 0/1 boundaries | posterior-form backward pass (C1, E3), normalized live update (E1), SQUAREM safeguards (D3) |
 | Reproducibility | C++ parallel sums vary run to run (#39's leftover); tied `order_id` order depends on input order; Rust's fixed-order reduction is bit-identical across threads and ISAs | B6, B3; Rust design (R) |
 | Plausible parameters | 9.1% of kept fits implausible, 11.8% at 0/1; restarts disagree in 74 of 110 skills; four closed issues show users confused by exactly this | warnings first (D1), priors as an option (D2) |
 | One forward recursion serves many features | forward-only smoothing (Cappé 2011) gives exact E-step counts without a backward pass | the same φ/ρ recursion underlies predict (C2), live updates (E1), out-of-core EM (E3), online EM (E4) and prefix sharing (E5) |
 | Independent implementations find bugs | the harness's C++ vs pure-Python parity tests found #70 and #72; the vectorized NumPy E-step confirmed #72's effect (parameters up to 0.085 apart); Rust parity found the mislabelled alpha shape; live updates vs `predict` found the regex and tie bugs | keep a reference implementation in the harness as an oracle (A2), and add parity tests whenever a backend is added |
+
+### The pipeline, end to end
+
+Where each experiment measured, and which plan items act there:
+
+```mermaid
+flowchart LR
+  L["Load<br/>read CSV / Parquet"] --> V["Convert<br/>filter, sort, codes,<br/>starts and lengths"]
+  V --> F["Fit<br/>EM: E-step + M-step,<br/>num_fits restarts"]
+  F --> P["Predict<br/>forward pass"]
+  P --> U["Live<br/>one answer at a time"]
+  L -.- LX["load_bench, load_breakdown,<br/>duckdb_convert, conv_mem<br/>60.8 s for 20M rows today"]
+  V -.- VX["phase 1 convert, duckdb_convert,<br/>repros: regex, ties, missing ids"]
+  F -.- FX["np_estep, Rust, omp_controlled,<br/>contention, degeneracy_audit,<br/>map_em, squarem, online EM"]
+  P -.- PX["phase 1 predict,<br/>check_smoothing"]
+  U -.- UX["live_bench,<br/>Roster review"]
+  LX --> LP["C7, E2, E3"]
+  VX --> VP["B2, B3, B4, B7, C3, C6, C8"]
+  FX --> FP["A1, B1, B5, B6, B8, C1, C4, C9,<br/>D1, D2, D3, E4, E5, R"]
+  PX --> PP["C2"]
+  UX --> UP["E1, CV"]
+```
+
+### Experiment ledger
+
+Every experiment, what it answered, and where it went. "Open" marks threads nobody has finished.
+
+| Experiment | Question | Answer | Goes to |
+| --- | --- | --- | --- |
+| `check_smoothing.py` | Can the E-step run forward-only? | Yes: Cappé 2011 Prop. 1, equals forward-backward to 2.5e-16 | E3, E4, E5 basis |
+| `online_em.py`, `cappe_moulines.py`, `cm_real.py` | Does C&M 2009 online EM work for BKT? | Student-level, one pass within 0.0016 of truth (batch 0.0013); held-out median gap 0.0012 | E4 (experimental) |
+| `compare_em.py`, `compare_online.py`, `synth_discount.py` | Do simpler online variants work? | Filtering-only is biased; ad-hoc variants lag; discounting needs per-contribution decay | E4 design notes (what not to do) |
+| `cappe2011_events.py` | Event-level online EM? | Stable only at α = 0.8 in our multi-student adaptation | not planned |
+| `degeneracy_audit.py` | How plausible are pyBKT's fits? | 9.1% implausible, 11.8% at 0/1, restarts disagree in 74 of 110 skills | D1 |
+| `map_em.py` | Do Beck & Chang priors help? | Stuck-at-0/1 fits 15.3% → 0%, held-out ll slightly better | D2; **open:** default prior strengths |
+| `squarem.py`, `squarem_tol.py` | Does SQUAREM speed EM safely? | 1.4–1.7x fewer E-steps with step cap and monotone guard | D3 |
+| `np_estep.py`, `ab_estep.py`, `py_vs_vec_fit.py`, `vec_vs_cpp_fit.py` | Can pure Python be fast? | 20–24x vs default, 32–40x vs serial; exact vs C++; stable form costs 11–15% | C1 |
+| `dedup.py` | How much do shared answer prefixes save? | 2.75x (ASSISTments) to ~25x (short sessions), counted | E5; **open:** not built |
+| `load_bench.py`, `load_breakdown.py`, `conv_mem.py` | Where does loading time go? | pandas `usecols` halves time and memory; DuckDB fastest; pandas 3 memory is a pyarrow effect | C7, E2, docs |
+| `duckdb_convert.py` | Can `convert_data` run in SQL? | Yes, identical for all students without ties | E2, B3 (tie-break) |
+| compact `.npy` store (`load_bench.py`) | Can conversion be cached? | Reload 20M rows in 0.03 s | E3 / large-data issue |
+| `e2e_pybkt.py`, `omp_overhead.py`, `omp_controlled.*`, `rust/contention*` | What does OpenMP cost? | ~8 ms per call when cores are busy; dynamic scheduling doesn't help; rayon doesn't stall | B8, C9, R |
+| `live_bench.py` | Exact O(1) live updates? | 2.4 µs per answer, matches `predict` to 1.6e-9; found the regex and tie bugs | E1, B2, B3 |
+| Rust `bkt_rs`, `bkt_lean`, `rayon_simd.py`, `lean_gap.py`, `lean_fit_check.py`, audits | Is a safe Rust E-step worth it? | Bit-identical serial, 2.1–2.5x; 10–39x with SIMD and threads; per-call copy ~40%; dependency `unsafe` counted | R; **open:** a global length-sorted chunk plan for SIMD lanes |
+| GPU assessment (wgpu, vulkano, cuda-rust) | Would a GPU help? | Not at typical sizes | not planned |
+| Phase 1 branch, `bench.py`, golden checks | Crash, leak, predict, convert | Fixed and faster, bit-identical | B1, C2, C3 |
+| Repros (`integer_loglike.py`, `regex_skill_names.py`, `nan_user_ids.py`, `tied_order_ids.py`) | Do the bugs reproduce on small data? | Yes, in seconds | B5, B2, B4, B3 |
+| `upstream_sync_check.sh` | Do the fork branches still fit upstream? | Clean merges; only obsolete markers fail | A2 |
+| Literature (`online_bkt_literature.md`, `deep_research_summary.md`, Khajah JEDM) | What does research support? | Online EM of global BKT parameters is new; KT² is per-student personalisation; gradient fitters suit extensions | E4 docs, not planned |
+
+**Other open threads:** K7's repro needs pandas 2 and 3 side by side; Hawkins et al. 2014 is unread;
+macOS (LLVM libomp) and Windows OpenMP behaviour under contention are untested; mixed
+performance/efficiency cores are unmeasured; compiled and pure-Python fits differ on tie-heavy data
+(section 9).
 
 What was tried and set aside, with reasons, is in `PLANNING.md` section 7 ("Not planned"): event-level
 online EM (stable only at α = 0.8), a GPU backend (no benefit at typical sizes), a gradient-based fitter,
@@ -396,6 +482,7 @@ riskier to build in C and C++ than in Rust. The C++ backend gets the safety and 
 | `delete` on `new[]` memory; a leak; earlier leak fixes in 2021 | `E_step.cpp:34`, `9ea4a2c`, `66c05d8` | B1 fixes |
 | `parallel=False` switches OpenMP off for the whole process | `1721ab7` (2021) | B1 fixes |
 | Unordered parallel sums: seeded fits not reproducible | #39; 1–3 distinct results in 20 runs | B6 fixes |
+| OpenMP calls stall ~8 ms each when other processes hold the cores; dynamic scheduling doesn't help | measured 2026-10-09 (`omp_controlled.sh`) | B8 works around it with a size threshold |
 | Loop variables not reset: every template used the first one's parameters | #70 (found by the harness's C++ vs Python parity test) | fixed by #71 |
 | OpenMP portability: seven commits for macOS (2020); Windows never built (#32); a 2023 wheel attempt for Windows and macOS was removed the same day | history | A5 asks first |
 
@@ -409,8 +496,27 @@ mutable state that the compiler does not check.
 - Safe SIMD with runtime dispatch (`fearless_simd`): the same binary uses SSE2, AVX2 or AVX-512, and
   results are bit-identical across all of them.
 - A fixed-order reduction: bit-identical results for 1–16 threads and across runs.
-- Work stealing (rayon) or scoped threads with an atomic chunk counter; both handle uneven student lengths
-  and mixed performance/efficiency cores.
+- Work stealing (rayon) that keeps working when other processes take the cores. Measured with every core
+  busy (`rust/results/contention_small.csv`):
+
+  | 4 busy processes | 1,800 answers | 22,900 answers |
+  | --- | --- | --- |
+  | C++ OpenMP | 7,972 µs | 8.0 ms |
+  | C++ serial | 151 µs | 1.34 ms |
+  | Rust, rayon (forced onto 4 threads) | **56 µs** | **557 µs** |
+  | Rust, scoped threads spawned per call | 3,996 µs | 4.0 ms |
+
+  A preempted rayon worker delays only the chunk it holds; the calling thread takes the rest. OpenMP's
+  fork-join waits for every thread, and dynamic scheduling doesn't change that. On large calls every
+  threaded variant slows in proportion to the CPU it loses. Mixed performance/efficiency cores are not
+  measured, but they are the same situation: threads that run at different speeds.
+
+**Design to propose: `bkt_lean` plus rayon.** `bkt_lean` keeps the small dependency set (pyo3 only),
+zero-copy input buffers and numpy-allocated outputs; rayon replaces its per-call scoped threads, which
+stalled under contention. That adds rayon, rayon-core and crossbeam (about 150 + 245 `unsafe` lines by the
+audit's count) to `bkt_lean`'s 2,457. This combination hasn't been built yet: `bkt_rs` shows rayon works
+and is deterministic, `bkt_lean` shows the lean bindings work; building `bkt_lean` + rayon is the first R
+task if the maintainer is interested.
 
 **Costs to state plainly:**
 - Dependencies still contain `unsafe`: 2,457 lines in `bkt_lean`'s linked crates (pyo3, pyo3-ffi, libc,
@@ -421,8 +527,9 @@ mutable state that the compiler does not check.
 - A second backend to keep in parity with C++ and NumPy; the harness's parity tests are the guard.
 - Maintainer familiarity with Rust.
 
-**Proposal for the issue:** an optional package (`pybkt-rs`) that pyBKT uses when installed, with the same
-API and the harness's parity tests; C++ stays the default compiled backend. Questions for the maintainer:
+**Proposal for the issue:** an optional package (`pybkt-rs`, `bkt_lean` + rayon) that pyBKT uses when
+installed, with the same API and the harness's parity tests; C++ stays the default compiled backend and
+gets only B1, B5, B6 and B8. Questions for the maintainer:
 interest at all; separate package or in-tree optional backend; who reviews Rust changes.
 
 ## 8. Setup and verification
@@ -464,3 +571,6 @@ Cognitive Tutor samples); their paths are listed in `README.md` ("Reproduce from
 - **Lead:** `fit` sorts the caller's DataFrame in place (checked on master); fold into C8 or report it.
 - **Lead:** `Roster` mutates the shared model's prior during each update (E1 removes this).
 - **Waiting on the maintainer:** #65 (release, Windows), the Rust discussion, the single-tree proposal.
+- **Settled in round 6:** the OpenMP cost (controlled: B8 replaces the old "measure first" C5), the
+  pure-Python baseline (C1 is 20–24x faster than the default, not 54x), and whether work stealing helps
+  under contention (it does on small calls; R design is `bkt_lean` + rayon).

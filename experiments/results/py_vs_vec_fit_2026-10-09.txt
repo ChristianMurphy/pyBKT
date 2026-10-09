@@ -1,0 +1,15 @@
+py_vs_vec_fit.py, 2026-10-09 (planning round 6), idle 4-vCPU VM (load average 0.1-0.8), Python 3.12, NumPy 1.26,
+pyBKT pure-Python build from upstream master cc1682e, vectorized E-step = np_estep.py (posterior-form backward pass).
+20 EM iterations, no early stop, same start, four ASSISTments skills. Parameters match pyBKT to <= 3.4e-15 in every run.
+
+run 1, parallel=False: pure-Python 38.4 s, vectorized 1.18 s, 32x
+  Percent Of 21.87 s vs 0.826 s (26.5x); Equation Solving 14.81 vs 0.324 (45.8x); Histogram 1.65 vs 0.028 (59x); Choose an Equation 0.06 vs 0.004 (13x)
+run 1, parallel=True (pyBKT's default: a multiprocessing Pool of cpu_count() workers created on every E-step):
+  pure-Python 21.9 s, vectorized 1.07 s, 20x
+  Percent Of 14.89 s vs 0.842 s (17.7x); Equation Solving 5.36 vs 0.191 (28x); Histogram 1.12 vs 0.031 (36x); Choose an Equation 0.54 vs 0.006 (88x)
+  The 89-answer skill takes 0.54 s with the pool vs 0.06 s without: about 25 ms of pool start-up per iteration.
+run 2, parallel=False: pure-Python 34.5 s, vectorized 0.87 s, 40x
+run 2, parallel=True:  pure-Python 21.6 s, vectorized 0.89 s, 24x
+
+The README's earlier 54x (28.7 s vs 0.54 s) was measured with parallel=False before the switch to the posterior-form
+backward pass; both sides ran slower in these runs, so absolute times vary between runs on this shared VM type.

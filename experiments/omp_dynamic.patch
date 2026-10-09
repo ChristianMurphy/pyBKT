@@ -1,0 +1,21 @@
+# Experiment only (planning round 6): dynamic scheduling in the phase 1 E-step, applied to phase 1 merged onto
+# upstream master. Results stay within 5e-13 of serial; under load the ~8 ms stall is unchanged (results/omp_dynamic.csv).
+# Apply from the repository root: patch -p1 < experiments/omp_dynamic.patch
+--- a/source-cpp/pyBKT/fit/E_step.cpp	2026-10-09 12:47:50.000000000 +0000
++++ b/source-cpp/pyBKT/fit/E_step.cpp	2026-10-09 13:49:30.677394632 +0000
+@@ -196,12 +196,9 @@
+         emission_softcounts_temp.setZero();
+         init_softcounts_temp.setZero();
+         loglike = 0;
+-        int num_threads = omp_get_num_threads();
+-        int blocklen = 1 + ((num_sequences - 1) / num_threads);
+-        int sequence_idx_start = blocklen * omp_get_thread_num();
+-        int sequence_idx_end = min(sequence_idx_start+blocklen,num_sequences);
+-
+-        for (int sequence_index=sequence_idx_start; sequence_index < sequence_idx_end; sequence_index++) {
++        // Experiment: dynamic scheduling instead of one fixed block per thread.
++        #pragma omp for schedule(dynamic, 16) nowait
++        for (int sequence_index=0; sequence_index < num_sequences; sequence_index++) {
+ 
+             // NOTE: -1 because Matlab indexing starts at 1
+             int64_t sequence_start = starts_arr(sequence_index, 0) - 1;

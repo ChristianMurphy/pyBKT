@@ -1,11 +1,17 @@
 """End-to-end EM fit, 20 iterations (no early stop), same start: pyBKT pure-Python EM_fit vs the
 vectorized NumPy E-step (np_estep.estep) with a closed-form M-step. Run under the NumPy<2 env with
-PYTHONPATH=<repo>/source-py so pyBKT is the pure-Python build."""
-import time, numpy as np, pandas as pd
+PYTHONPATH=<repo>/source-py so pyBKT is the pure-Python build.
+
+  python py_vs_vec_fit.py            # pyBKT with parallel=False (the original comparison)
+  python py_vs_vec_fit.py parallel   # pyBKT with parallel=True, its default: a multiprocessing Pool per E-step
+"""
+import sys, time, numpy as np, pandas as pd
 from pyBKT.util import data_helper
 from pyBKT.fit import EM_fit
 from pyBKT.generate import random_model_uni
 from np_estep import estep
+
+PARALLEL = len(sys.argv) > 1 and sys.argv[1] == "parallel"
 
 df = pd.read_csv("/tmp/claude-0/data/as.csv", low_memory=False, encoding="latin")
 df = df[df["original"] == 1].dropna(subset=["skill_name"])
@@ -17,7 +23,7 @@ for n, skill in picks:
     d = datas[skill]
     m0 = random_model_uni.random_model_uni(1, 1, rand=np.random.RandomState(0))
     p = dict(prior=float(m0["prior"]), learn=float(m0["learns"][0]), forget=0.0, guess=float(m0["guesses"][0]), slip=float(m0["slips"][0]))
-    t = time.perf_counter(); fm, _ = EM_fit.EM_fit({k: (v.copy() if hasattr(v, "copy") else v) for k, v in m0.items()}, d, tol=-1, maxiter=20, parallel=False); t_py = time.perf_counter() - t
+    t = time.perf_counter(); fm, _ = EM_fit.EM_fit({k: (v.copy() if hasattr(v, "copy") else v) for k, v in m0.items()}, d, tol=-1, maxiter=20, parallel=PARALLEL); t_py = time.perf_counter() - t
     data8 = d["data"][0].astype(np.int8)
     t = time.perf_counter()
     for _ in range(20):
@@ -29,4 +35,4 @@ for n, skill in picks:
     diff = max(abs(p[k] - ref[k]) for k in ref)
     tot_py += t_py; tot_np += t_np
     print(f"{skill[:34]:34s} N={n:6d} students={len(d['starts']):5d} maxlen={d['lengths'].max():5d}  pure-Python {t_py:7.2f}s  vectorized {t_np:6.3f}s  {t_py/t_np:6.1f}x  max|param diff| {diff:.1e}")
-print(f"total: pure-Python {tot_py:.1f}s, vectorized {tot_np:.2f}s, {tot_py/tot_np:.0f}x")
+print(f"total: pure-Python (parallel={PARALLEL}) {tot_py:.1f}s, vectorized {tot_np:.2f}s, {tot_py/tot_np:.0f}x")

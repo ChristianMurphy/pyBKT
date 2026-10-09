@@ -76,14 +76,20 @@ Numbers come from this directory (`README.md`, `rust/REPORT.md`, the repro scrip
 >   `new[]` memory, and leaks (fixed in 2021, and one more now);
 > - `parallel=False` switching OpenMP off for the whole process, and parallel sums added in arrival
 >   order, which is why seeded fits still differ in the last bits (#39);
-> - OpenMP portability: several rounds for macOS in 2020, no Windows build (#32).
+> - OpenMP portability: several rounds for macOS in 2020, no Windows build (#32);
+> - fork-join threading under load: when other processes keep the cores busy, every OpenMP call waits about
+>   8 ms (one scheduler time slice) whatever its size, because the call ends only when every thread has
+>   finished. A 1,800-answer call takes 8.0 ms instead of 0.15 ms on one thread. Switching the loop to
+>   dynamic scheduling gave the same 8 ms.
 >
 > SIMD in C++ also means intrinsics per instruction set, or compiler-specific multiversioning, and
 > wheels built for the SSE2 baseline unless dispatch is written by hand.
 >
 > **Why Rust is the safer place.** The prototype forbids `unsafe` in its own code, so the compiler rejects
 > data races and out-of-bounds writes there. SIMD goes through a safe library that picks SSE2, AVX2 or
-> AVX-512 at run time. The reduction order is fixed, which gives the bit-identical results above.
+> AVX-512 at run time. The reduction order is fixed, which gives the bit-identical results above. Its
+> work-stealing thread pool (rayon) keeps going when another process takes a core: on the same 1,800-answer
+> call under the same load it took 56 µs, where OpenMP took 8 ms.
 >
 > **Costs, plainly.** The Rust dependencies still contain `unsafe` code (mostly pyo3 and libc, which any
 > Rust extension for CPython needs; no security advisory affects the versions used). Building from source
@@ -91,8 +97,20 @@ Numbers come from this directory (`README.md`, `rust/REPORT.md`, the repro scrip
 > keep in step with C++ and NumPy; the test suite's backend-parity tests are meant for exactly that.
 >
 > **Proposal.** An optional package (for example `pybkt-rs`) that pyBKT uses when it's installed, with the
-> same API and the same parity tests. The C++ backend stays the default and only gets safety and
-> determinism fixes, no new SIMD or threading code.
+> same API and the same parity tests. It would combine the leaner of the two prototypes (only pyo3 as a
+> binding dependency, no copies of the input arrays) with rayon for work stealing. The C++ backend stays
+> the default and only gets safety and determinism fixes, no new SIMD or threading code.
+>
+> ```mermaid
+> flowchart LR
+>   API["pyBKT API<br/>Model.fit / predict"] --> SEL{"which E-step<br/>is installed?"}
+>   SEL -->|pybkt-rs installed| RS["Rust E-step<br/>SIMD + work stealing"]
+>   SEL -->|compiled wheel| CPP["C++ E-step<br/>safety and determinism fixes only"]
+>   SEL -->|no compiled module| NP["NumPy E-step"]
+>   RS --> T["one test suite:<br/>backend parity"]
+>   CPP --> T
+>   NP --> T
+> ```
 >
 > Questions:
 > 1. Is this something you'd want for pyBKT at all?
@@ -113,6 +131,20 @@ Numbers come from this directory (`README.md`, `rust/REPORT.md`, the repro scrip
 > Proposal: one `pyBKT/` tree. The compiled modules stay optional; when they're missing, pyBKT imports the
 > NumPy versions instead, and `pyBKT.version` still says which one is active. `setup.py` keeps building
 > the extension when it can. Results don't change; the test suite runs both paths.
+>
+> ```mermaid
+> flowchart LR
+>   subgraph Today
+>     S1["setup.py"] -->|C++ build works| A1["installs source-cpp/pyBKT:<br/>24 .py files + extension"]
+>     S1 -->|C++ build fails| B1["installs source-py/pyBKT:<br/>24 .py files, 7 of them different"]
+>   end
+>   subgraph Proposed
+>     S2["setup.py"] --> C2["installs pyBKT/:<br/>one copy of the .py files"]
+>     C2 --> D2{"compiled E-step<br/>importable?"}
+>     D2 -->|yes| E2["C++ path"]
+>     D2 -->|no| F2["NumPy path"]
+>   end
+> ```
 >
 > Several fixes I'd like to send next edit `data_helper.py` and `Model.py`, so doing this first would
 > halve those PRs. Would you accept a PR for it, or would you rather keep the two trees?
@@ -273,6 +305,16 @@ longer versions.
 > plain Python), with a batch form for many students. It matches `predict`'s state predictions to 1.6e-9
 > on 294k answers. It uses a normalized form of the update that stays accurate near 0 and 1.
 >
+> ```mermaid
+> flowchart LR
+>   subgraph Today["Roster.update today"]
+>     a1["set the shared model's prior<br/>to the student's mastery"] --> a2["build a data dict,<br/>run the full predict path"] --> a3["restore the prior"]
+>   end
+>   subgraph Proposed["Proposed"]
+>     b2["Roster.update"] --> b1["update(mastery, correct, params):<br/>one exact step, no shared state"]
+>   end
+> ```
+>
 > Proposal: add the function, and have `Roster` use it, so `Roster` gets faster and stops changing the
 > model. `Roster`'s API stays the same.
 >
@@ -281,16 +323,37 @@ longer versions.
 
 ---
 
+### 11a. PR description for B8 (no issue): one thread for small E-step calls
+
+> **What changes for users:** fits on machines where other work keeps the cores busy (shared servers,
+> notebooks, parallel jobs) no longer pay about 8 ms per E-step call; idle machines keep OpenMP's speedup
+> on large skills. **Class:** [same] (last-bit differences between the serial and parallel sums).
+> **Evidence:** with 4 busy processes on 4 cores, a 1,800-answer call took 8.0 ms with OpenMP and 0.15 ms
+> on one thread; 22,900 answers 8.0 ms vs 1.3 ms; idle, OpenMP is 1.7–2.9x faster from about 1,800 answers.
+> Dynamic scheduling gave the same 8 ms. **Research basis:** none; measurement. **Verify:**
+> `omp_controlled.sh` idle and with background load, before and after.
+
+### 11b. Class-value cluster (after reproducing; one comment per cause)
+
+Outline only, because nothing is reproduced yet. Five reports involve multigs/multilearn class values
+after `fit`: `Roster` from a multigs model (#29 closed, #50, #52; a traceback in #50 points at
+`Roster.process_data` passing `True` instead of class names), `evaluate` raising `IndexError` on
+sequence-level splits with multigs (#47), and `crossvalidate` predicting 0.5 where `predict` raises for
+unseen multilearn classes (#45). For each cause found: a short repro on public data, the fix PR, and a
+comment on the matching issue (on #50 for the `Roster` cause, mentioning #52).
+
 ## Wave 3 (outlines; refresh numbers before posting)
 
 ### 12. New issue: faster fitting and prediction, same results
 List the [same] PRs with one measured line each: forward-only predict (1M rows 60 → 14 ms; multigs with
 50 templates 3.27 → 0.12 s, half the peak memory); vectorized `convert_data` (5M rows and 100 skills
-31.6 → 2.0 s; multipair 100k rows 17.2 → 0.06 s); vectorized pure-Python E-step (54x, matches C++ to
-3.4e-15); reading only the needed columns (20M rows 60.8 s / 5.0 GB → 33.0 s / 2.6 GB); converting once
+31.6 → 2.0 s; multipair 100k rows 17.2 → 0.06 s); vectorized pure-Python E-step (20–24x faster than today's default
+parallel pure-Python fit, 32–40x than serial; matches C++ to 3.4e-15; no process pool, which has broken on
+Windows before: #11, #51); reading only the needed columns (20M rows 60.8 s / 5.0 GB → 33.0 s / 2.6 GB); converting once
 and not reordering the caller's DataFrame; running `num_fits` restarts in one pass (default takes 4.3x
-one fit); a compact multigs layout (1.47 GB → ~2 MB) and 64-bit indices; and, after a controlled
-measurement, when to run serially. Ask which they'd like first.
+one fit); a compact multigs layout (1.47 GB → ~2 MB) and 64-bit indices; and running skills and restarts in
+parallel instead of inside each small E-step (the small-call OpenMP default ships earlier, in wave 2). Ask
+which they'd like first.
 
 ### 13. New issue: warn about implausible fits
 Link #45, #21, #27, #36, #38. Numbers from `degeneracy_audit.py`: 9.1% of kept fits have guess or slip

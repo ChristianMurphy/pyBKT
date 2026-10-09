@@ -101,9 +101,11 @@ event-level algorithm combines Cappé 2011's within-sequence recursion with
 bookkeeping we designed. The literature check found no BKT-specific paper that
 does online EM of the global parameters with streaming statistics. The closest
 is KT² (arXiv:2506.09393), which is incremental EM without discounting. That
-check could not reach arXiv or the EDM sites, so its paper-level claims rest on
-abstracts. Cappé 2011's recursion has been checked numerically, not against the
-paper's text.
+check first ran on abstracts only; the owner then uploaded the full texts (Cappé & Moulines 2009,
+Cappé 2011, Mongillo & Denève 2008, KT² v1 and others; `online_bkt_literature.md`, [V-paper] notes).
+Read in full, KT² is per-student personalisation from a shared batch anchor, not online learning of
+shared parameters, and Cappé 2011's forward smoothing of additive statistics (Prop. 1) is the recursion
+`StudentStream` implements; it also matches forward-backward numerically (section 1).
 
 ### Results
 
@@ -278,6 +280,12 @@ and 10th smallest).
 | Histogram as Table or Graph | 1,804 | 1.10 s | 0.018 s | 60x | <0.01 s |
 | Choose an Equation from Given Information | 89 | 0.05 s | 0.003 s | 18x | <0.01 s |
 | **Total** | | **28.7 s** | **0.54 s** | **54x** | about 0.04 s |
+
+**Re-measured 2026-10-09** on an idle machine with the posterior-form backward pass, against both of pyBKT's
+modes (`py_vs_vec_fit.py [parallel]`, `results/py_vs_vec_fit_2026-10-09.txt`): 32–40x against `parallel=False`
+and **20–24x against pyBKT's default `parallel=True`**, which starts a multiprocessing pool on every E-step.
+That pool costs about 25 ms per iteration, so on the 89-answer skill the default is 9x slower than serial.
+Quote 20x (default) to 40x (serial) rather than 54x.
 
 - Vectorized vs **C++**: fitted parameters match to within **3.4e-15** after 20 iterations.
 - Vectorized vs **pyBKT pure Python**: they differ by up to 0.085, because the pure-Python E-step drops
@@ -458,14 +466,55 @@ calls taking 6.5 s, about 7.8 ms each. Most of that is OpenMP's per-call cost
 \* The old build had already turned serial by this point, because of its sticky
 `omp_set_num_threads(1)`.
 
-These were measured at load average 2.5–3 on 4 cores. **Not reproduced**: the Rust agent's
-separate run (load average no more than 2.9) measured C++ OpenMP at 7.9 µs median per call on 5 answers.
-So the milliseconds-per-call cost depends on contention: OpenMP threads that spin while
-waiting stall when other processes hold the cores. It needs a controlled re-measurement (an idle
-machine, then deliberate background load) before it is treated as a general finding. Either way, **real BKT data has many small
-skills, and parallelizing inside one small E-step costs more than it saves.**
-Options: use one thread below roughly 50k answers, and parallelize across skills
-(or `num_fits` restarts) instead of within an E-step.
+These were measured at load average 2.5–3 on 4 cores; the Rust agent's separate run measured 7.9 µs on
+5 answers. The controlled re-measurement below explains the difference: it is contention.
+
+### Controlled contention measurements (2026-10-09)
+
+One fresh process per measurement; median, p90 and min of 200 calls; first on an idle machine (load
+average about 0.1), then with *k* processes spinning on one core each, standing in for other jobs,
+notebooks or parallel workers. Linux, GCC's libgomp, 4 vCPUs. Raw rows: `results/omp_controlled.csv`
+(`omp_controlled.sh`), `results/omp_dynamic.csv`, `rust/results/contention.csv` and
+`rust/results/contention_small.csv` (`rust/contention.sh`, `rust/contention_small.py`).
+
+C++ E-step, median per call (phase 1 build; upstream master behaves the same):
+
+| Answers in call | serial, idle | OpenMP, idle | serial, 4 busy | OpenMP, 4 busy |
+| --- | --- | --- | --- | --- |
+| 5 | 4 µs | 7 µs | 4 µs | 7 µs |
+| 1,800 | 95 µs | 56 µs | 93 µs | **7,999 µs** |
+| 22,900 | 1.23 ms | 0.51 ms | 1.18 ms | **8.0 ms** |
+| 200,000 | 11.4 ms | 4.6 ms | 11.5 ms | 13.0 ms |
+
+- **Idle, OpenMP helps** from about 1,800 answers: 1.7–2.9x across the two builds.
+- **With every core busy, each OpenMP call waits about 8 ms** (a scheduler time slice) whatever its
+  size, because the call ends only when every thread in the team has finished, and a preempted thread
+  holds up the rest. With 2 busy processes the stall shows up in the median or the p90.
+- **Dynamic scheduling doesn't fix it.** Replacing the fixed per-thread blocks with
+  `schedule(dynamic, 16)` (results still within 5e-13 of serial) gives the same 8.0 ms medians under load:
+  the stall is the fork-join barrier, not the work split.
+
+Same load, small calls, against Rust (`rust/contention_small.py`; Rust variants forced onto 4 threads
+with 256-answer chunks):
+
+| 4 busy processes | 1,800 answers | 22,900 answers |
+| --- | --- | --- |
+| C++ serial | 151 µs | 1.34 ms |
+| C++ OpenMP | 7,972 µs | 8.0 ms |
+| Rust, rayon work stealing | **56 µs** | **557 µs** |
+| Rust, scoped threads spawned per call | 3,996 µs | 4.0 ms |
+| Rust default (one thread below 65,536 answers) | 35 µs | 623 µs |
+
+- **Work stealing avoids the stall**: the calling thread keeps taking chunks, and a preempted worker
+  delays only the chunk it holds. Threads spawned per call stall like OpenMP.
+- On large calls (whole-ASSISTments and 5M-answer fixtures, `rust/results/contention.csv`) every threaded
+  variant slows roughly in proportion to the CPU it loses (1.6–2.8x for C++ OpenMP, 1.7–4.9x for Rust);
+  work stealing gives no relative advantage there.
+
+**What to do:** in C++, avoid a parallel region per small call: one thread below roughly 50k answers, and
+parallelism across skills or `num_fits` restarts, where one barrier covers much more work. In Rust, rayon's
+work stealing (or a size threshold) handles contention. **Real BKT data has many small skills,** so this
+matters for the default settings.
 
 ### Phase 1 regression check
 
@@ -533,19 +582,13 @@ binding benchmarks: a binding swap gives smaller, faster-building wheels, not
 faster fitting. The proxy blocked most academic sources, so its claims about
 algorithms and numerics did not reach verification.
 
-## Papers that would firm this up
+## Papers
 
-The research tools here could not reach arXiv or the EDM proceedings. Uploading
-any of these would let the claims above be checked against the text:
-
-1. Cappé (2011), *Online EM algorithm for hidden Markov models*, arXiv:0908.2359.
-   Checks `StudentStream` and the event-level design. **Most useful.**
-2. Mongillo & Denève (2008), *Online learning with hidden Markov models*,
-   Neural Computation 20(7). The discounting.
-3. Gao et al. (2025), KT², arXiv:2506.09393. The closest BKT-specific online work.
-4. Varadhan & Roland (2008), SQUAREM, Scand. J. Stat. 35(2). Step-length rules.
-5. Beck & Chang (2007) on identifiability, and Pardos & Heffernan (2010) on
-   visualizing EM convergence for BKT. The pathologies in section 2.
+All five papers this section used to ask for were uploaded by the owner and read in full, and the
+sections above were checked against them: Cappé (2011); Mongillo & Denève (2008); Gao et al. (2025),
+KT²; Varadhan & Roland (2008), SQUAREM (via the R vignette); Beck & Chang (2007) and Pardos & Heffernan
+(2010). Also read: Cappé & Moulines (2009) and Khajah's JEDM paper. Still read only from abstracts or
+listings: Hawkins et al. (2014) and the other [V-index] items in `online_bkt_literature.md`.
 
 ## Files
 

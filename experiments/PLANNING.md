@@ -39,11 +39,11 @@ Each item is tagged by how it affects results, using the classes from README dis
 ### Performance, results unchanged
 | # | Item | Measured benefit | Cost / risk |
 | --- | --- | --- | --- |
-| P1 | Serial below a size threshold, or parallel across skills, instead of OpenMP inside small E-steps | 6x fit speedup under load (7.7 s -> 1.3 s); per-call cost only 7.9 µs when idle | needs a controlled re-measurement first |
+| P1 | Serial below a size threshold, or parallel across skills, instead of OpenMP inside small E-steps | controlled 2026-10-09: ~8 ms per OpenMP call whenever cores are busy (up to 92x slower than serial), 1.7–2.9x faster when idle; dynamic scheduling doesn't help | B8 (wave 2) and C9 |
 | P2 | Skip writing `alpha` during EM | 16 B/answer per iteration not written | tiny |
 | P3 | Sparse multigs layout (one template index per answer) | 1.47 GB -> ~2 MB on merged ASSISTments | medium; touches kernel and converter |
 | P4 | Narrow dtypes (int8 answers, int32 resources) | ~4x less kernel input memory | small |
-| P5 | Vectorized NumPy E-step for the pure-Python backend | 54x end-to-end fit (18–103x per skill), matches C++ to 3.4e-15 | depends on K4 (K3 now fixed upstream); stable posterior-form backward pass |
+| P5 | Vectorized NumPy E-step for the pure-Python backend | 20–24x vs pyBKT's default parallel fit, 32–54x vs serial (re-measured 2026-10-09); matches C++ to 3.4e-15 | depends on K4 (K3 now fixed upstream); stable posterior-form backward pass |
 | P6 | Optional DuckDB loader / one-query `convert_data` | ~4x at 20M rows, identical output | optional dependency |
 | P7 | Compact store (`.npy`, memory-mapped) | reload 20M rows in 0.03 s | new file format to maintain |
 | P8 | Prefix sharing in the E-step | 2.75x less work (ASSISTments), ~25x (short sessions) | counted only, not implemented |
@@ -124,6 +124,14 @@ Round 5 (after reading all 55 upstream issues and the full git history):
   the fixed behaviour.
 - **Rust:** a discussion issue now, framed as "SIMD and multithreading help, but they are riskier to build
   in C and C++"; build nothing upstream until the maintainer replies.
+
+Round 6 (after a controlled contention study and the rest of the issue tracker):
+- **Class-value cluster** (#29, #45, #47, #50, #52): wave 2, after live updates; reproduce first.
+- **OpenMP default for small calls** (B8, was C5): wave 2 with the C++ fixes. Measured: ~8 ms per call
+  when cores are busy; dynamic scheduling doesn't help.
+- **Pure-Python process pool:** fixed only by the vectorized E-step (C1); no separate pool PR.
+- **Rust design to propose:** `bkt_lean` plus rayon (work stealing didn't stall under contention; per-call
+  scoped threads did).
 
 ## 4. What a new user gets today (PyPI 1.4.3, checked 2026-10-09)
 
@@ -260,7 +268,7 @@ Result-changing fixes ([fix]) go into the tracking issue first; the maintainer d
 ### Train C — "faster, same results"
 | PR | Content | Benefit | Size |
 | --- | --- | --- | --- |
-| C1 | Vectorized NumPy E-step replaces the per-student pure-Python loop. Since #73 this changes no results; to re-check against master's pure Python | 54x pure-Python fit; matches C++ to 3.4e-15 | M |
+| C1 | Vectorized NumPy E-step replaces the per-student pure-Python loop and its per-iteration process pool. Since #73 this changes no results (re-checked 2026-10-09 against master's pure Python: within 3.4e-15) | 20–24x vs the default parallel fit, 32–40x vs serial | M |
 | C2 | Forward-only predict (both builds) | 3–26x predict, multigs memory halved | S |
 | C3 | Vectorized `convert_data` | 3–16x; multipair 290x | M |
 | C4 | Skip alpha in EM; narrow dtypes; fix alpha's labelled shape (K13) | less memory traffic | S |
@@ -298,7 +306,7 @@ installed. Does not ask upstream to adopt a Rust toolchain. Proposed only after 
 | Gradient-based fitter (BKT as a PyTorch RNN) | flexibility for extensions (BKT+IRT), not speed; heavy dependency | README §9 |
 | Parallel scan over time (Särkkä & García-Fernández 2021) | would help very long sequences; untested | README §9 |
 | nanobind / pybind11 binding swap | binding overhead isn't the cost; smaller wheels only | `deep_research_summary.md` |
-| Numba / Cython pure-Python path | vectorized NumPy gets 54x with no new dependency | ROADMAP alternatives |
+| Numba / Cython pure-Python path | vectorized NumPy gets 20–40x with no new dependency | ROADMAP alternatives |
 | Polars as a required dependency | DuckDB/pyarrow optional is enough; pandas path improved instead | README §7 |
 
 ### Prerequisites and conflicts (found in planning round 4)
@@ -422,7 +430,7 @@ request after A1 + A2. All results-unchanged except A1, which only removes a cra
 B1. A3 waits for the maintainer's answer in the tracking issue.
 
 ## 9. Open questions
-Round 5's questions were answered (section 3). Still open, with defaults in `HANDOFF.md` section 9: the
+Rounds 5 and 6 are answered (section 3). Still open, with defaults in `HANDOFF.md` section 9: the
 evidence branch name (default `evidence/bkt-research`) and contents; running the harness on every wheel
 platform. Waiting on the maintainer: release and Windows (#65), the Rust discussion, the single-tree
 proposal.
@@ -442,7 +450,7 @@ proposal.
 | `degeneracy_audit.py` | 9% implausible, 12% boundary, 74/110 skills disagree across restarts | D1 |
 | `map_em.py` | priors: +0.0023 held-out ll, boundary fits 15% -> 0% | D2 |
 | `squarem.py`, `squarem_tol.py` | 1.4–1.7x fewer EM steps, no basin change | D3 |
-| `np_estep.py`, `py_vs_vec_fit.py`, `vec_vs_cpp_fit.py`, `ab_estep.py` | 54x pure-Python fit, exact vs C++; stable form costs 11–15% | C1 |
+| `np_estep.py`, `py_vs_vec_fit.py`, `vec_vs_cpp_fit.py`, `ab_estep.py` | 20–24x vs the default parallel pure-Python fit, 32–54x vs serial; exact vs C++; stable form costs 11–15% | C1 |
 | `dedup.py` | prefix sharing 2.75–25x less work (counted) | E5 |
 | `load_bench.py`, `load_breakdown.py` | pandas `usecols` halves time/memory; DuckDB fastest | C7, E2 |
 | `duckdb_convert.py` | whole `convert_data` in SQL, identical output | E2 (and B3's tie-break) |
@@ -450,6 +458,10 @@ proposal.
 | `e2e_pybkt.py`, `omp_overhead.py` | default parallel 6x slower than serial under load; 7.9 µs/call idle | C5 (after re-measurement) |
 | `live_bench.py` | O(1) live updates exact to 1.6e-9; naive formula unstable; regex and tie bugs | E1, B2, B3 |
 | `nan_user_ids.py` (planning round 4) | missing user ids: silent drop in fit, invalid predictions | B4 |
+| `omp_controlled.sh`/`.py`, `results/omp_controlled.csv`, `results/omp_dynamic.csv` (round 6) | OpenMP calls stall ~8 ms under contention; dynamic scheduling doesn't help | B8, C9; Rust framing |
+| `rust/contention.sh`, `rust/contention_small.py` (round 6) | rayon work stealing avoids the stall on small calls; per-call scoped threads don't; big calls degrade proportionally everywhere | R design (`bkt_lean` + rayon) |
+| `py_vs_vec_fit.py parallel` (round 6) | vectorized E-step is 20–24x faster than pyBKT's default process pool, 32–40x than serial; the pool costs ~25 ms per iteration | C1 |
+| Remaining upstream issues (round 6) | class-value cluster #29/#45/#47/#50/#52; process pool on Windows #11/#51/#42 | CV, C1 |
 | Rust `bkt_rs`, `bkt_lean`, `rayon_simd.py`, `lean_gap.py` | 2.2x serial, 10–35x SIMD+threads; copy-once matters; rayon optional | Track R; C8 (convert once) |
 | Dependency and safety audits (numpy, Arrow, Parquet, wgpu, rayon) | pyo3-only lean build; rayon acceptable | Track R |
 | GPU assessment | not worth it at typical sizes | Not planned |

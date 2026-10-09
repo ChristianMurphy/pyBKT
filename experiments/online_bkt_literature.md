@@ -189,4 +189,4 @@ These are already known to the reader and are listed only to show which general 
 
 **Full texts read afterwards ([V-paper]),** uploaded by the owner: Cappé & Moulines 2009; Cappé 2011; Mongillo & Denève 2008; Beck & Chang 2007; Pardos & Heffernan 2010; the SQUAREM R vignette (Varadhan); KT² v1; and Khajah's JEDM paper (text). How each maps onto the code is in README.md sections 2–3.
 
-**Caveat on coverage:** egress restrictions blocked arXiv and EDM/JEDM full texts, so everything tagged [V-index] rests on abstracts and listings. A full-text check of KT² (arXiv:2506.09393), Hawkins et al. 2014 and Pardos & Heffernan 2010 is the most valuable follow-up.
+**Caveat on coverage:** egress restrictions blocked arXiv and EDM/JEDM full texts, so everything tagged [V-index] rests on abstracts and listings. KT² and Pardos & Heffernan 2010 were later read in full (above); Hawkins et al. 2014 is still unread.
