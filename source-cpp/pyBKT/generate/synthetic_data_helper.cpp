@@ -31,8 +31,8 @@ static double extract_int64_t(PyArrayObject *arr, int i) {
 }
 
 void capsule_cleanup(PyObject *capsule) {
-    void *memory = PyCapsule_GetPointer(capsule, NULL);
-    delete memory;
+    int *memory = (int *) PyCapsule_GetPointer(capsule, NULL);
+    delete[] memory;
 }
 
 

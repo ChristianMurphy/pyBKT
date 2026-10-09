@@ -10,7 +10,7 @@
 
 #include <iostream>
 #include <stdint.h>
-#include <alloca.h>
+#include <vector>
 #include <Eigen/Core>
 #include <omp.h>
 #include <Python.h>
@@ -30,11 +30,20 @@ static double extract_double(PyArrayObject *arr, int i) {
 }
 
 void capsule_cleanup(PyObject *capsule) {
-    void *memory = PyCapsule_GetPointer(capsule, NULL);
-    delete memory;
+    double *memory = (double *) PyCapsule_GetPointer(capsule, NULL);
+    delete[] memory;
 }
 
-static PyObject* run(PyObject * module, PyObject * args) {
+// Wrap a new[] buffer as a NumPy array that frees it when the array is freed.
+static PyObject* owned_array(int nd, npy_intp *dims, double *buffer) {
+    PyObject *arr = PyArray_SimpleNewFromData(nd, dims, NPY_DOUBLE, buffer);
+    PyArray_SetBaseObject((PyArrayObject *) arr, PyCapsule_New(buffer, NULL, capsule_cleanup));
+    return arr;
+}
+
+// With predict_only, run just the forward pass and return the one-step state
+// predictions instead of the expected counts.
+static PyObject* e_step(PyObject * args, bool predict_only) {
     //TODO: check if parameters are null.
     //TODO: check that dicts have the required members.
     //TODO: check that all parameters have the right sizes.
@@ -51,13 +60,14 @@ static PyObject* run(PyObject * module, PyObject * args) {
     // dict& data, dict& model, numpy::ndarray& trans_softcounts, numpy::ndarray& emission_softcounts, numpy::ndarray& init_softcounts, int num_outputs
 
     // "O" format -> read argument as a PyObject type into argy (Python/C API)
-    if (!PyArg_ParseTuple(args, "OOiiO", &data_ptr, &model_ptr, &num_outputs, &parallel, &fixed)) {
+    if (predict_only ? !PyArg_ParseTuple(args, "OOiO", &data_ptr, &model_ptr, &parallel, &fixed)
+                     : !PyArg_ParseTuple(args, "OOiiO", &data_ptr, &model_ptr, &num_outputs, &parallel, &fixed)) {
         PyErr_SetString(PyExc_ValueError, "Error parsing arguments.");
         return NULL;
     }
 
-    if (!parallel)
-        omp_set_num_threads(1);
+    // set per call: omp_set_num_threads(1) would make every later call serial too
+    int num_threads = parallel ? omp_get_max_threads() : 1;
 
     // Load all the numpy arrays in data & model
     char* DM_NAMES[] = {"data", "resources", "starts", "lengths", "learns", "forgets", "guesses", "slips"};
@@ -69,7 +79,7 @@ static PyObject* run(PyObject * module, PyObject * args) {
     }
     prior = PyFloat_AsDouble(PyDict_GetItemString(model_ptr, "prior"));
 
-    int bigT = (int) PyArray_DIM(alldata, 1), num_subparts = (int) PyArray_DIM(alldata, 0);
+    npy_intp bigT = PyArray_DIM(alldata, 1), num_subparts = (int) PyArray_DIM(alldata, 0);
     int len_allresources = (int) PyArray_DIM(allresources, 0);
     int num_sequences = (int) PyArray_DIM(starts, 0);
     int len_lengths = (int) PyArray_DIM(lengths, 0);
@@ -138,23 +148,20 @@ static PyObject* run(PyObject * module, PyObject * args) {
     }
 
 
+    // Predictions use the model's own learn and forget rates, as the
+    // predict_onestep_states module does, even when the fit fixed some of them.
+    MatrixXd As_model(2,2*num_resources);
+    if (predict_only) {
+        for (int n=0; n<num_resources; n++) {
+            double model_learn = extract_double(learns, n);
+            double model_forget = extract_double(forgets, n);
+            As_model.col(2*n) << 1-model_learn, model_learn;
+            As_model.col(2*n+1) << model_forget, 1-model_forget;
+        }
+    }
+
     //// outputs
 
-    //TODO: NEED TO FIX THIS I'M CREATING NEW ARRAYS AND I NEED TO USE THE ARGUMENTS!!!
-    //TODO: FIX THIS!!!
-    /*Map<ArrayXXd,Aligned> all_trans_softcounts(trans_softcounts,2,2*num_resources);
-    all_trans_softcounts.setZero();
-    Map<Array2Xd,Aligned> all_emission_softcounts(emission_softcounts,2,2*num_subparts);
-    all_emission_softcounts.setZero();
-    Map<Array2d,Aligned> all_initial_softcounts(init_softcounts);
-    all_initial_softcounts.setZero();*/
-    //TODO: I replaced the pointers to the arguments for new Eigen arrays.
-    /*ArrayXXd all_trans_softcounts(2,2*num_resources);
-    all_trans_softcounts.setZero(); //why is he setting all these to zero???
-    Array2Xd all_emission_softcounts(2,2*num_subparts);
-    all_emission_softcounts.setZero();
-    Array2d all_initial_softcounts(2, 1); //should i use these dimensions? the same as the original vector??
-    all_initial_softcounts.setZero();*/
     double* r_trans_softcounts = new double[2*2*num_resources];
     double* r_emission_softcounts = new double[2*2*num_subparts];
     double* r_init_softcounts = new double[2*1];
@@ -164,44 +171,25 @@ static PyObject* run(PyObject * module, PyObject * args) {
     all_emission_softcounts.setZero();
     Map<Array2d,Aligned> all_initial_softcounts(r_init_softcounts);
     all_initial_softcounts.setZero();
-
-    //TODO: FIX THIS!!! I'll replace all these weird arrays for zeroes ones.
-    //Array2Xd likelihoods_out(2,bigT);
-    //likelihoods_out.setZero();
-    //Array2Xd gamma_out(2,bigT);
-    //gamma_out.setZero();
-    //Array2Xd alpha_out(2,bigT);
-    //alpha_out.setZero();
-    Map<Array2Xd,Aligned> alpha_out(NULL,2,bigT);
     double s_total_loglike = 0;
     double *total_loglike = &s_total_loglike;
 
-    //TODO: FIX THIS!!! why is he doing this??
-    /* switch (num_outputs)
-    {
-        case 4:
-            plhs[3] = mxCreateDoubleMatrix(2,bigT,mxREAL);
-            new (&likelihoods_out) Map<Array2Xd,Aligned>(mxGetPr(plhs[3]),2,bigT);
-        case 3:
-            plhs[2] = mxCreateDoubleMatrix(2,bigT,mxREAL);
-            new (&gamma_out) Map<Array2Xd,Aligned>(mxGetPr(plhs[2]),2,bigT);
-        case 2:
-            plhs[1] = mxCreateDoubleMatrix(2,bigT,mxREAL);
-            new (&alpha_out) Map<Array2Xd,Aligned>(mxGetPr(plhs[1]),2,bigT);
-        case 1:
-            plhs[0] = mxCreateDoubleScalar(0.);
-            total_loglike = mxGetPr(plhs[0]);
-    }*/
+    // run: forward messages, one column per attempt.
+    // predict_only: one-step state predictions, row 0 unknown and row 1 known.
     double* r_alpha_out = new double[2 * bigT];
-    new (&alpha_out) Map<Array2Xd,Aligned>(r_alpha_out,2,bigT);
+    Map<Array2Xd,Aligned> alpha_out(r_alpha_out,2,bigT);
+    Map<Array<double,2,Dynamic,RowMajor>,Unaligned> predictions_out(r_alpha_out,2,bigT);
 
     /* COMPUTATION */
-    #pragma omp parallel
+    #pragma omp parallel num_threads(num_threads)
     {
-        double s_trans_softcounts[2*2*num_resources] __attribute__((aligned(16)));
-        double s_emission_softcounts[2*2*num_subparts] __attribute__((aligned(16)));
-        Map<ArrayXXd,Aligned> trans_softcounts_temp(s_trans_softcounts,2,2*num_resources);
-        Map<ArrayXXd,Aligned> emission_softcounts_temp(s_emission_softcounts,2,2*num_subparts);
+        // Scratch space lives on the heap: one student with a long history, or
+        // many templates, would overflow a thread's stack.
+        std::vector<double> s_trans_softcounts(2*2*num_resources);
+        std::vector<double> s_emission_softcounts(2*2*num_subparts);
+        std::vector<double> s_likelihoods, s_alpha, s_gamma;
+        Map<ArrayXXd,Unaligned> trans_softcounts_temp(s_trans_softcounts.data(),2,2*num_resources);
+        Map<ArrayXXd,Unaligned> emission_softcounts_temp(s_emission_softcounts.data(),2,2*num_subparts);
         Array2d init_softcounts_temp;
         double loglike;
 
@@ -213,7 +201,6 @@ static PyObject* run(PyObject * module, PyObject * args) {
         int blocklen = 1 + ((num_sequences - 1) / num_threads);
         int sequence_idx_start = blocklen * omp_get_thread_num();
         int sequence_idx_end = min(sequence_idx_start+blocklen,num_sequences);
-        //mexPrintf("start:%d   end:%d\n", sequence_idx_start, sequence_idx_end);
 
         for (int sequence_index=sequence_idx_start; sequence_index < sequence_idx_end; sequence_index++) {
 
@@ -221,10 +208,14 @@ static PyObject* run(PyObject * module, PyObject * args) {
             int64_t sequence_start = starts_arr(sequence_index, 0) - 1;
 
             int64_t T = lengths_arr(sequence_index, 0);
+            if ((int64_t) s_alpha.size() < 2*T) {
+                s_likelihoods.resize(2*T);
+                s_alpha.resize(2*T);
+                s_gamma.resize(2*T);
+            }
 
             //// likelihoods
-            double s_likelihoods[2*T];
-            Map<Array2Xd,Aligned> likelihoods(s_likelihoods,2,T);
+            Map<Array2Xd,Unaligned> likelihoods(s_likelihoods.data(),2,T);
 
             likelihoods.setOnes();
              for (int t=0; t<T; t++) {
@@ -241,9 +232,7 @@ static PyObject* run(PyObject * module, PyObject * args) {
 
             //// forward messages
             double norm;
-            double s_alpha[2*T] __attribute__((aligned(16)));
-            double contribution;
-            Map<MatrixXd,Aligned> alpha(s_alpha,2,T);
+            Map<MatrixXd,Unaligned> alpha(s_alpha.data(),2,T);
             alpha.col(0) = initial_distn * likelihoods.col(0);
             norm = alpha.col(0).sum();
             alpha.col(0) /= norm;
@@ -258,10 +247,18 @@ static PyObject* run(PyObject * module, PyObject * args) {
                 loglike += log(norm) / (normalizeLengths? T : 1);
             }
 
+            if (predict_only) {
+                predictions_out.col(sequence_start) = initial_distn;
+                for (int t=0; t<T-1; t++) {
+                    int64_t resources_temp = allresources_arr(sequence_start+t, 0);
+                    predictions_out.col(sequence_start+t+1) = As_model.block(0,2*(resources_temp-1),2,2) * alpha.col(t);
+                }
+                continue;
+            }
+
             //// backward messages and statistic counting
 
-            double s_gamma[2*T] __attribute__((aligned(16)));
-            Map<Array2Xd,Aligned> gamma(s_gamma,2,T);
+            Map<Array2Xd,Unaligned> gamma(s_gamma.data(),2,T);
             gamma.col(T-1) = alpha.col(T-1);
             for (int n=0; n<num_subparts; n++) {
                 int32_t data_temp = alldata_arr(n, sequence_start+(T-1));
@@ -292,16 +289,6 @@ static PyObject* run(PyObject * module, PyObject * args) {
             }
             init_softcounts_temp += gamma.col(0);
 
-            //TODO: FIX THIS!!!
-            /* switch (nlhs)
-            {
-                case 4:
-                    likelihoods_out.block(0,sequence_start,2,T) = likelihoods;
-                case 3:
-                    gamma_out.block(0,sequence_start,2,T) = gamma;
-                case 2:
-                    alpha_out.block(0,sequence_start,2,T) = alpha;
-            } */
             alpha_out.block(0,sequence_start,2,T) = alpha;
         }
         #pragma omp critical
@@ -313,42 +300,48 @@ static PyObject* run(PyObject * module, PyObject * args) {
         }
     }
 
-    PyObject *result = PyDict_New();
-
-    npy_intp dims1[] = {num_resources, 2, 2};
-    PyObject *all_trans_softcounts_arr = (PyObject *) PyArray_SimpleNewFromData(3, dims1, NPY_DOUBLE, r_trans_softcounts);
-    PyObject *capsule1 = PyCapsule_New(r_trans_softcounts, NULL, capsule_cleanup);
-    PyArray_SetBaseObject((PyArrayObject *) all_trans_softcounts_arr, capsule1);
-
-    npy_intp dims2[] = {num_subparts, 2, 2};
-    PyObject *all_emission_softcounts_arr = (PyObject *) PyArray_SimpleNewFromData(3, dims2, NPY_DOUBLE, r_emission_softcounts);
-    PyObject *capsule2 = PyCapsule_New(r_emission_softcounts, NULL, capsule_cleanup);
-    PyArray_SetBaseObject((PyArrayObject *) all_emission_softcounts_arr, capsule2);
-
-    npy_intp dims3[] = {2, 1};
-    PyObject *all_initial_softcounts_arr = (PyObject *) PyArray_SimpleNewFromData(2, dims3, NPY_DOUBLE, r_init_softcounts);
-    PyObject *capsule3 = PyCapsule_New(r_init_softcounts, NULL, capsule_cleanup);
-    PyArray_SetBaseObject((PyArrayObject *) all_initial_softcounts_arr, capsule3);
+    for (int i = 0; i < 8; i++)
+        Py_XDECREF(*DM_PTRS[i]);
 
     npy_intp dims4[] = {2, bigT};
-    PyObject *alpha_out_arr = (PyObject *) PyArray_SimpleNewFromData(2, dims4, NPY_DOUBLE, r_alpha_out);
-    PyObject *capsule4 = PyCapsule_New(r_alpha_out, NULL, capsule_cleanup);
-    PyArray_SetBaseObject((PyArrayObject *) alpha_out_arr, capsule4);
+    PyObject *alpha_out_arr = owned_array(2, dims4, r_alpha_out);
+    if (predict_only) {
+        delete[] r_trans_softcounts;
+        delete[] r_emission_softcounts;
+        delete[] r_init_softcounts;
+        return alpha_out_arr;
+    }
 
+    npy_intp dims1[] = {num_resources, 2, 2};
+    PyObject *all_trans_softcounts_arr = owned_array(3, dims1, r_trans_softcounts);
+    npy_intp dims2[] = {num_subparts, 2, 2};
+    PyObject *all_emission_softcounts_arr = owned_array(3, dims2, r_emission_softcounts);
+    npy_intp dims3[] = {2, 1};
+    PyObject *all_initial_softcounts_arr = owned_array(2, dims3, r_init_softcounts);
+    PyObject *total_loglike_obj = PyLong_FromLong(*total_loglike);
+
+    PyObject *result = PyDict_New();
     PyDict_SetItemString(result, "all_trans_softcounts", all_trans_softcounts_arr);
     PyDict_SetItemString(result, "all_emission_softcounts", all_emission_softcounts_arr);
     PyDict_SetItemString(result, "all_initial_softcounts", all_initial_softcounts_arr);
     PyDict_SetItemString(result, "alpha", alpha_out_arr);
-    PyDict_SetItemString(result, "total_loglike", PyLong_FromLong(*total_loglike));
+    PyDict_SetItemString(result, "total_loglike", total_loglike_obj);
 
-    for (int i = 0; i < 8; i++)
-        Py_XDECREF(*DM_PTRS[i]);
     Py_XDECREF(all_trans_softcounts_arr);
     Py_XDECREF(all_emission_softcounts_arr);
     Py_XDECREF(all_initial_softcounts_arr);
     Py_XDECREF(alpha_out_arr);
+    Py_XDECREF(total_loglike_obj);
 
     return(result);
+}
+
+static PyObject* run(PyObject * module, PyObject * args) {
+    return e_step(args, false);
+}
+
+static PyObject* predict(PyObject * module, PyObject * args) {
+    return e_step(args, true);
 }
 
 
@@ -356,6 +349,8 @@ static PyObject* run(PyObject * module, PyObject * args) {
 static PyMethodDef E_step_Methods[] = {
     {"run",  run, METH_VARARGS,
      "Runs E-step of Expectation Maximization in C++ module"},
+    {"predict",  predict, METH_VARARGS,
+     "predict(data, model, parallel, fixed): one-step state predictions from the forward pass alone"},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
