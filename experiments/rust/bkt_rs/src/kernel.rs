@@ -407,7 +407,7 @@ fn process<D: Obs, R: Res, const K1: bool, const R1: bool>(
             let p0 = a[0] * y0 + a[1] * y1;
             let p1 = a[2] * y0 + a[3] * y1;
             // pair(i,j) = ((A(i,j) * alpha_j) * gamma_i) / p_i ; NaN -> 0
-            let nz = |v: f64| if v != v { 0.0 } else { v };
+            let nz = |v: f64| if v.is_nan() { 0.0 } else { v };
             let q00 = nz(a[0] * y0 * g0 / p0);
             let q01 = nz(a[1] * y1 * g0 / p0);
             let q10 = nz(a[2] * y0 * g1 / p1);
@@ -467,7 +467,7 @@ pub fn e_step<D: Obs, R: Res>(
     out: Option<(&mut [f64], &mut [f64])>,
 ) -> Counts {
     let (nr, k) = (m.a.len(), inp.k);
-    let chunks = if threads == 0 { vec![0..inp.starts.len()] } else { plan_chunks(inp.lengths, chunk_attempts) };
+    let chunks = if threads == 0 { std::iter::once(0..inp.starts.len()).collect() } else { plan_chunks(inp.lengths, chunk_attempts) };
     let parts = drive(inp, &chunks, threads, out, |rg, sink| {
         let mut c = Counts::zero(nr, k);
         let (mut s0, mut s1) = (Vec::new(), Vec::new());
@@ -535,7 +535,7 @@ pub fn predict<D: Obs, R: Res>(
     chunk_attempts: usize,
     out: (&mut [f64], &mut [f64]),
 ) {
-    let chunks = if threads == 0 { vec![0..inp.starts.len()] } else { plan_chunks(inp.lengths, chunk_attempts) };
+    let chunks = if threads == 0 { std::iter::once(0..inp.starts.len()).collect() } else { plan_chunks(inp.lengths, chunk_attempts) };
     drive(inp, &chunks, threads, Some(out), |rg, sink| {
         let s = sink.expect("predict always has an output");
         match (inp.k == 1, m.a.len() == 1) {

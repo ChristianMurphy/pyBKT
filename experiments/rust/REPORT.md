@@ -360,3 +360,349 @@ The skew is visible in timings: on as_all, L=8 is no faster than L=4 (6.3 vs 6.3
 * The SIMD kernel is K == 1 only. Multi-subpart models (K > 1) use the exact or chunked kernels.
 * `predict` with a non-empty `fixed` (where filtering parameters differ from prediction parameters) is supported through `pred_learns`/`pred_forgets` but was only tested indirectly, through equal parameters.
 * The `as_all_multi` fixture listed in `make_fixture.py` was not present. K>1 and R>1 coverage comes from the randomized tests against the C++.
+
+---
+
+# Part 2: `bkt_lean`, a minimal-dependency crate with zero-copy marshalling, plus Rust-side EM
+
+Goal: keep `#![forbid(unsafe_code)]` in our own code, avoid `unsafe`-heavy dependencies where that is practical, and cut marshalling costs. `bkt_rs` is kept unchanged except for the clippy fixes, for comparison.
+
+## What changed
+
+| | `bkt_rs` | `bkt_lean` (default) | `bkt_lean --features simd` |
+|---|---|---|---|
+| direct dependencies | pyo3, numpy, rayon, fearless_simd | **pyo3 only**: `default-features = false`, features `macros`, `extension-module`, `abi3-py311` | pyo3, fearless_simd (optional) |
+| crates linked into the `.so`, incl. itself | 20 | **5**: bkt_lean, pyo3, pyo3-ffi, libc, once_cell | 6 |
+| all crates incl. build deps and proc-macros | 30 | 14 | 15 |
+| non-comment `unsafe` lines in linked deps (ours = 0) | 3,704 | 2,457 | 2,560 |
+| threads | rayon pool | `std::thread::scope`. Chunks are claimed through an `AtomicUsize` and results are sent over `mpsc` to the calling thread, which stores them by chunk index, so the reduction order is fixed | same |
+| SIMD lanes | fearless_simd + plain arrays, with dispatch | plain `[f64; L]` arrays, build baseline only (SSE2 on x86-64) | + fearless_simd f64x2/4/8 with runtime dispatch |
+| Python minimum | 3.9 (abi3) | **3.11** (abi3). The buffer protocol is only in the limited API from 3.11; pyo3 gates `pyo3::buffer` on `any(not(Py_LIMITED_API), Py_3_11)` | 3.11 |
+| MSRV | 1.89 | **1.83** (checked with `cargo +1.83 check`) | 1.89 |
+| stripped `.so` / wheel | 7.2 MB / 2.4 MB | 3.0 MB / 0.96 MB | 9.6 MB / 2.8 MB |
+
+Unsafe counts come from `audit/deps_unsafe.py` and are in `audit/deps_unsafe.md`. Method: lines containing the `unsafe` keyword after stripping `//`, `/* */` comments and string literals, in all `.rs` files of each crate (tests, benches and examples excluded). Per crate:
+* pyo3: 1,253
+* libc: 799 (mostly `extern` declarations)
+* pyo3-ffi: 358
+* ndarray: 395
+* numpy: 234
+* crossbeam: 245
+* rayon and rayon-core: 150
+* fearless_simd: 103 (the method differs slightly from the 112 quoted in the task)
+* matrixmultiply: 95
+* once_cell: 47
+
+Dropping numpy, ndarray, rayon and their trees removes about 1,250 linked `unsafe` lines. The remaining 95% is pyo3, pyo3-ffi and libc, which any CPython extension written in Rust needs.
+
+**RustSec** (`audit/rustsec_check.py` against the clone at `/tmp/claude-0/exp/depaudit/advisory-db`, commit 550efd3, 2026-10-08):
+* Every package in both `Cargo.lock` files was checked, including build-time and optional dependencies.
+* **No advisory affects the resolved versions**, and there are no informational (unmaintained or unsound) notices.
+* The ones that would apply to older versions are already patched here: pyo3 RUSTSEC-2026-0013/0176/0177 (fixed in 0.28.2/0.29.0) and crossbeam-epoch RUSTSEC-2026-0204 (fixed in 0.9.20).
+* The matcher was sanity-checked: it does flag pyo3 0.28.1, crossbeam-epoch 0.9.18 and once_cell 1.0.0.
+
+**clippy:** `cargo clippy --all-targets -- -D warnings` is clean on bkt_rs and on bkt_lean with and without `simd`.
+* bkt_rs fixes:
+  * `v != v` became `v.is_nan()`, the deny-level error at kernel.rs:410;
+  * two `vec![0..n]` became `std::iter::once(..).collect()`;
+  * doc-list indentation;
+  * `from_bits` was renamed to `f64_from_bits`;
+  * index loops became `zip` iterators.
+* Outputs are **bit-identical** before and after: `correctness.txt` is byte-for-byte identical, the lanes hashes are identical across all impl × L × ISA combinations, the chunked hash is unchanged (`b550668678e13265`), and the generic tests still pass with 0 failures.
+
+## Zero-copy marshalling: what pyo3's safe API allows
+
+* **Inputs.** `PyBuffer::<T>::as_slice(py)` returns `&[ReadOnlyCell<T>]`, a true zero-copy view.
+  * `ReadOnlyCell<T>` wraps `UnsafeCell<T>`, so it is **`!Sync`**. The slice cannot go to scoped threads, and it cannot cross `py.detach`, which requires `Send`.
+  * Its lifetime is tied to the `Python<'py>` token, so it is GIL-bound. pyo3 does this deliberately: other Python code could mutate the buffer.
+  * Safe options, all measured:
+    * `borrow`: zero copy, GIL held, calling thread only. Used for serial work, including the lane kernels run inline.
+    * `copy`: `PyBuffer::to_vec`, a memcpy into an owned `Vec<T>` that is `Sync`.
+    * `codes`: convert to a `Vec<u8>` of 0/1/2 codes, plus `Vec<u32>` resources when R > 1, on every call.
+    * `Dataset`: a `#[pyclass(frozen)]` holding the converted codes, so conversion happens **once per fit**. `fit()` does this internally.
+* **Outputs.** Counts are tiny and returned as Python lists. Alpha and predictions (16 bytes per attempt) can go to:
+  * **(a)** `PyByteArray::new_with(16N, |buf| ...)`: `split_at_mut` per chunk; workers write `f64::to_ne_bytes` through `chunks_exact_mut(8)`; then `np.frombuffer(ba).reshape(2, N)`, which is zero copy and writable.
+  * **(b)** caller-allocated `np.empty((2, N))` passed as a writable `PyBuffer<f64>`, giving `as_mut_slice` → `&[Cell<f64>]`. This is `!Send`, so serial runs write directly, and threaded runs send finished chunks over `mpsc` to the calling thread, which writes them while the other chunks are still computing (pipelined).
+  * **(c)** baseline: `Vec<f64>`, then a copy into a new `bytes` object.
+* `bkt_lean` keeps the GIL during compute, as the C++ module does (it never releases it). Worker threads never touch Python.
+
+## Correctness of `bkt_lean`
+
+Sources: `results/lean_check.txt`, `results/lean_simd_check.txt`, `results/fit_check.txt`. There are 0 failures in both builds.
+
+* **Exact serial is bit-identical to C++** on both fixtures, for every combination of:
+  * input: copy, borrow, codes, Dataset;
+  * alpha: none, bytearray, bytes, numpy;
+  * dtype: int32/int64 and int8/uint16.
+
+  `predict` is bit-identical to `E_step.predict` for threads 0 and 4 and every input and output mode.
+* **Chunked (4 threads):**
+  * one hash over threads {1,2,3,4,8} × output modes;
+  * **bit-identical to `bkt_rs` chunked** (same chunk plan);
+  * max relative error vs C++: 4.3e-13 (as_all), 9.6e-14 (synth5m).
+* **Lanes:** plain and fearless, each L ∈ {2,4,8}, are each identical over threads {0,1,4} and bit-identical to `bkt_rs` lanes. Max relative error vs C++ is at most 4.4e-13.
+* **Random generic checks:** 1,783 (default build) and 1,966 (simd build), all passing.
+  * Inputs: K = 1..4, R = 1..4, unsorted or gapped layouts, which exercise the pack-and-drain output path, and degenerate parameters.
+  * Serial runs are bit-exact; chunked and lanes runs are within 1e-12.
+* **`fit()`** compared with pyBKT `EM_fit` using the C++ E-step:
+
+| case | iterations (pyBKT / Rust) | parameters |
+|---|---|---|
+| as_all, 20 iterations, tol=-1, Rust serial | 20 / 20 | **bit-identical**: prior, learns, forgets, guesses, slips, As, emissions, pi_0 |
+| same, Rust 4 threads (chunked) | 20 / 20 | max rel 8.5e-13 |
+| same, Rust lanes L4, 4 threads | 20 / 20 | max rel 7.8e-13 |
+| synthetic K=3, R=4, Rust serial (C++ run with per-index `fixed = -1` arrays) | 20 / 20 | **bit-identical** (generic M-step) |
+| as_all, default tol=1e-3, Rust `compat_int_loglike=True` | 24 / 24 | **bit-identical**: the integer-truncated stopping test is reproduced |
+| as_all, default tol=1e-3, Rust float loglike (default) | 24 / **47** | differs by 0.3-2% (more iterations) |
+
+  The last row shows the cost of the C++ truncation. Because pyBKT compares *integer* loglikelihoods, EM stops at 24 iterations on as_all, when it has not converged to tol=1e-3. The float test runs 47 iterations, and the parameters move another 0.3-2%. `compat_int_loglike=True` replicates pyBKT exactly; the default is the float.
+
+## Benchmarks: `bkt_lean` vs `bkt_rs` vs C++
+
+Method:
+* As before: a fresh process per measurement, the minimum over 3 rounds (in parentheses, the max/min of the per-round minimums), 9 runs per process for E-step and predict, and 3 for 20-iteration fits.
+* Minor page faults per call come from `ru_minflt`.
+* 1-minute load average during the sweep: 0.85-2.90, median 1.9, on 4 vCPUs.
+* Every E-step call includes the full Python-visible work: argument parsing, buffer acquisition, input copy or conversion, output allocation, and `np.frombuffer` + reshape.
+
+#### as_all (449,220 attempts): E-step
+
+ns/attempt = min over 3 rounds x 9 runs (max/min of per-round mins). Minor page faults per call (`ru_minflt`).
+
+| variant | ns/attempt | x C++ serial | x C++ par | minor faults / call |
+|---|---:|---:|---:|---:|
+| C++ E_step.run parallel=0 | 49.07 (1.04) | 1.00 | 0.59 | 195 |
+| C++ E_step.run parallel=1 (4 OpenMP) | 29.10 (1.03) | 1.69 | 1.00 | 195 |
+| bkt_rs exact serial, alpha | 21.98 (1.02) | 2.23 | 1.32 | 24 |
+| bkt_rs exact serial, no alpha | 21.46 (1.07) | 2.29 | 1.36 | 0 |
+| bkt_rs 4 thr, alpha | 7.43 (1.17) | 6.61 | 3.92 | 25 |
+| bkt_rs 4 thr, no alpha | 6.57 (1.35) | 7.47 | 4.43 | 6 |
+| bkt_rs fearless L4 serial | 6.27 (1.02) | 7.83 | 4.64 | 0 |
+| bkt_rs fearless L8 4 thr | 4.10 (1.55) | 11.96 | 7.09 | 40 |
+| lean serial, input copy (to_vec) | 21.48 (1.13) | 2.28 | 1.35 | 49 |
+| lean serial, input borrow (&[ReadOnlyCell], 0 copy) | 21.22 (1.01) | 2.31 | 1.37 | 0 |
+| lean serial, input -> u8 codes per call | 21.51 (1.06) | 2.28 | 1.35 | 12 |
+| lean serial, Dataset (converted once) | 21.07 (1.03) | 2.33 | 1.38 | 0 |
+| lean 4 thr, input copy | 7.15 (1.35) | 6.86 | 4.07 | 58 |
+| lean 4 thr, input -> codes per call | 8.98 (1.13) | 5.46 | 3.24 | 20 |
+| lean 4 thr, Dataset | 7.35 (1.27) | 6.67 | 3.96 | 8 |
+| lean serial, alpha -> bytearray (a) | 22.58 (1.09) | 2.17 | 1.29 | 244 |
+| lean serial, alpha -> np.empty buffer (b) | 22.50 (1.04) | 2.18 | 1.29 | 130 |
+| lean serial, borrow input + alpha -> np.empty (b) | 21.74 (1.03) | 2.26 | 1.34 | 25 |
+| lean serial, alpha Vec<f64> -> bytes copy (c) | 34.80 (1.03) | 1.41 | 0.84 | 3931 |
+| lean 4 thr, alpha -> bytearray (a) | 7.92 (1.40) | 6.20 | 3.67 | 250 |
+| lean 4 thr, alpha -> np.empty, main-thread writes (b) | 8.16 (1.25) | 6.01 | 3.57 | 342 |
+| lean 4 thr, alpha -> bytes copy (c) | 18.25 (1.01) | 2.69 | 1.59 | 3943 |
+| lean lanes plain [f64;4] serial | 12.34 (1.71) | 3.98 | 2.36 | 0 |
+| lean lanes plain [f64;8] serial | 14.38 (1.08) | 3.41 | 2.02 | 160 |
+| lean lanes plain L4, 4 thr | 5.71 (1.51) | 8.59 | 5.09 | 26 |
+| lean lanes plain L8, 4 thr | 6.23 (1.56) | 7.88 | 4.67 | 143 |
+| lean +simd fearless L4 serial | 6.19 (1.39) | 7.92 | 4.70 | 0 |
+| lean +simd fearless L8 serial | 6.08 (1.09) | 8.07 | 4.78 | 160 |
+| lean +simd fearless L4, 4 thr | 4.73 (1.65) | 10.38 | 6.15 | 15 |
+| lean +simd fearless L8, 4 thr | 4.35 (1.44) | 11.27 | 6.68 | 148 |
+
+#### as_all: predict (one-step state predictions, 16 bytes/attempt output)
+
+| variant | ns/attempt | x C++ serial | x C++ par | minor faults / call |
+|---|---:|---:|---:|---:|
+| C++ E_step.predict serial | 41.83 (1.09) | 1.00 | 0.59 | 195 |
+| C++ E_step.predict parallel | 24.64 (1.01) | 1.70 | 1.00 | 195 |
+| bkt_rs predict serial (numpy out) | 10.20 (1.05) | 4.10 | 2.42 | 81 |
+| bkt_rs predict 4 thr | 4.51 (1.83) | 9.27 | 5.46 | 81 |
+| lean predict serial -> bytearray (a) | 11.02 (1.01) | 3.80 | 2.24 | 244 |
+| lean predict serial -> np.empty (b) | 10.52 (1.05) | 3.97 | 2.34 | 73 |
+| lean predict serial -> bytes copy (c) | 22.29 (1.02) | 1.88 | 1.11 | 3931 |
+| lean predict 4 thr -> bytearray (a) | 7.82 (1.29) | 5.35 | 3.15 | 251 |
+| lean predict 4 thr -> np.empty (b) | 5.42 (1.17) | 7.72 | 4.55 | 482 |
+| lean predict 4 thr -> bytes copy (c) | 15.03 (1.21) | 2.78 | 1.64 | 3941 |
+
+#### as_all: full EM fit, 20 iterations (tol=-1)
+
+| variant | seconds per fit | ns/attempt/iteration | x C++ serial fit | x C++ parallel fit |
+|---|---:|---:|---:|---:|
+| pyBKT EM_fit + C++ E-step, parallel=False | 0.45 (1.10) | 50.04 | 1.00 | 0.65 |
+| pyBKT EM_fit + C++ E-step, parallel=True | 0.29 (1.07) | 32.47 | 1.54 | 1.00 |
+| pyBKT EM_fit + bkt_rs shim, serial | 0.20 (1.05) | 22.81 | 2.19 | 1.42 |
+| pyBKT EM_fit + bkt_rs shim, 4 thr | 0.07 (1.06) | 7.88 | 6.35 | 4.12 |
+| bkt_lean.fit serial (exact) | 0.20 (1.10) | 21.74 | 2.30 | 1.49 |
+| bkt_lean.fit 4 thr (chunked) | 0.06 (1.18) | 6.86 | 7.30 | 4.73 |
+| bkt_lean.fit 4 thr, plain lanes L4 | 0.04 (1.65) | 4.32 | 11.59 | 7.52 |
+| bkt_lean.fit +simd fearless L8, serial | 0.06 (1.08) | 6.31 | 7.93 | 5.14 |
+| bkt_lean.fit +simd fearless L8, 4 thr | 0.02 (1.59) | 2.45 | 20.46 | 13.28 |
+
+#### synth5m (5,000,000 attempts): E-step
+
+ns/attempt = min over 3 rounds x 9 runs (max/min of per-round mins). Minor page faults per call (`ru_minflt`).
+
+| variant | ns/attempt | x C++ serial | x C++ par | minor faults / call |
+|---|---:|---:|---:|---:|
+| C++ E_step.run parallel=0 | 54.67 (1.04) | 1.00 | 0.26 | 19532 |
+| C++ E_step.run parallel=1 (4 OpenMP) | 14.06 (1.01) | 3.89 | 1.00 | 19532 |
+| bkt_rs exact serial, alpha | 21.73 (1.08) | 2.52 | 0.65 | 165 |
+| bkt_rs exact serial, no alpha | 20.02 (1.08) | 2.73 | 0.70 | 0 |
+| bkt_rs 4 thr, alpha | 6.11 (1.52) | 8.95 | 2.30 | 573 |
+| bkt_rs 4 thr, no alpha | 5.03 (1.46) | 10.86 | 2.79 | 1 |
+| bkt_rs fearless L4 serial | 6.13 (1.02) | 8.91 | 2.29 | 0 |
+| bkt_rs fearless L8 4 thr | 1.48 (1.20) | 36.98 | 9.51 | 1 |
+| lean serial, input copy (to_vec) | 20.33 (1.02) | 2.69 | 0.69 | 647 |
+| lean serial, input borrow (&[ReadOnlyCell], 0 copy) | 19.92 (1.04) | 2.75 | 0.71 | 945 |
+| lean serial, input -> u8 codes per call | 20.01 (1.02) | 2.73 | 0.70 | 241 |
+| lean serial, Dataset (converted once) | 19.71 (1.01) | 2.77 | 0.71 | 0 |
+| lean 4 thr, input copy | 5.63 (1.11) | 9.72 | 2.50 | 648 |
+| lean 4 thr, input -> codes per call | 5.85 (1.03) | 9.35 | 2.41 | 241 |
+| lean 4 thr, Dataset | 5.04 (1.07) | 10.85 | 2.79 | 1 |
+| lean serial, alpha -> bytearray (a) | 29.32 (1.02) | 1.86 | 0.48 | 20179 |
+| lean serial, alpha -> np.empty buffer (b) | 23.31 (1.02) | 2.35 | 0.60 | 761 |
+| lean serial, borrow input + alpha -> np.empty (b) | 22.87 (1.13) | 2.39 | 0.61 | 1059 |
+| lean serial, alpha Vec<f64> -> bytes copy (c) | 37.45 (1.05) | 1.46 | 0.38 | 39711 |
+| lean 4 thr, alpha -> bytearray (a) | 14.44 (1.15) | 3.79 | 0.97 | 20180 |
+| lean 4 thr, alpha -> np.empty, main-thread writes (b) | 7.94 (1.01) | 6.88 | 1.77 | 1418 |
+| lean 4 thr, alpha -> bytes copy (c) | 19.06 (1.08) | 2.87 | 0.74 | 39712 |
+| lean lanes plain [f64;4] serial | 11.89 (1.07) | 4.60 | 1.18 | 0 |
+| lean lanes plain [f64;8] serial | 11.53 (1.09) | 4.74 | 1.22 | 0 |
+| lean lanes plain L4, 4 thr | 3.40 (1.07) | 16.08 | 4.14 | 1 |
+| lean lanes plain L8, 4 thr | 3.04 (1.13) | 17.98 | 4.62 | 1 |
+| lean +simd fearless L4 serial | 5.94 (1.12) | 9.20 | 2.37 | 0 |
+| lean +simd fearless L8 serial | 4.96 (1.02) | 11.03 | 2.84 | 0 |
+| lean +simd fearless L4, 4 thr | 1.66 (1.07) | 32.94 | 8.47 | 2 |
+| lean +simd fearless L8, 4 thr | 1.39 (1.10) | 39.39 | 10.13 | 1 |
+
+#### synth5m: predict (one-step state predictions, 16 bytes/attempt output)
+
+| variant | ns/attempt | x C++ serial | x C++ par | minor faults / call |
+|---|---:|---:|---:|---:|
+| C++ E_step.predict serial | 47.25 (1.08) | 1.00 | 0.28 | 19532 |
+| C++ E_step.predict parallel | 13.22 (1.11) | 3.57 | 1.00 | 19532 |
+| bkt_rs predict serial (numpy out) | 9.21 (1.07) | 5.13 | 1.44 | 165 |
+| bkt_rs predict 4 thr | 3.03 (1.14) | 15.57 | 4.36 | 572 |
+| lean predict serial -> bytearray (a) | 16.85 (1.06) | 2.80 | 0.78 | 20179 |
+| lean predict serial -> np.empty (b) | 11.17 (1.09) | 4.23 | 1.18 | 761 |
+| lean predict serial -> bytes copy (c) | 26.38 (1.03) | 1.79 | 0.50 | 39711 |
+| lean predict 4 thr -> bytearray (a) | 10.35 (1.09) | 4.57 | 1.28 | 20180 |
+| lean predict 4 thr -> np.empty (b) | 4.55 (1.20) | 10.40 | 2.91 | 2509 |
+| lean predict 4 thr -> bytes copy (c) | 15.80 (1.03) | 2.99 | 0.84 | 39712 |
+
+#### synth5m: full EM fit, 20 iterations (tol=-1)
+
+| variant | seconds per fit | ns/attempt/iteration | x C++ serial fit | x C++ parallel fit |
+|---|---:|---:|---:|---:|
+| pyBKT EM_fit + C++ E-step, parallel=False | 5.82 (1.03) | 58.17 | 1.00 | 0.29 |
+| pyBKT EM_fit + C++ E-step, parallel=True | 1.69 (1.49) | 16.94 | 3.43 | 1.00 |
+| pyBKT EM_fit + bkt_rs shim, serial | 2.31 (1.02) | 23.14 | 2.51 | 0.73 |
+| pyBKT EM_fit + bkt_rs shim, 4 thr | 0.65 (1.29) | 6.47 | 8.99 | 2.62 |
+| bkt_lean.fit serial (exact) | 1.99 (1.03) | 19.95 | 2.92 | 0.85 |
+| bkt_lean.fit 4 thr (chunked) | 0.52 (1.03) | 5.24 | 11.11 | 3.24 |
+| bkt_lean.fit 4 thr, plain lanes L4 | 0.34 (1.06) | 3.39 | 17.17 | 5.00 |
+| bkt_lean.fit +simd fearless L8, serial | 0.52 (1.02) | 5.23 | 11.11 | 3.24 |
+| bkt_lean.fit +simd fearless L8, 4 thr | 0.15 (1.16) | 1.51 | 38.57 | 11.23 |
+
+#### Per-call overhead on a tiny input (1 student, 5 attempts; 3000 calls per process)
+
+| variant | min µs | median µs | p90 µs |
+|---|---:|---:|---:|
+| C++ E_step.run serial | 3.3 | 3.6 | 4.3 |
+| C++ E_step.run parallel (OpenMP) | 5.2 | 7.9 | 9.2 |
+| C++ predict parallel | 4.6 | 5.6 | 7.3 |
+| bkt_rs serial, no alpha | 1.9 | 2.1 | 3.6 |
+| bkt_rs threads=4 (1 chunk -> inline) | 5.0 | 8.2 | 11.3 |
+| bkt_rs serial + alpha (numpy array) | 2.0 | 2.1 | 3.8 |
+| lean serial, copy input | 3.4 | 3.6 | 4.1 |
+| lean serial, borrow input | 3.4 | 3.6 | 4.0 |
+| lean threads=4 (1 chunk -> inline) | 3.4 | 3.7 | 4.4 |
+| lean serial + alpha bytearray + np.frombuffer | 3.9 | 4.5 | 5.5 |
+| lean serial + alpha into np.empty | 3.7 | 4.2 | 6.8 |
+| lean predict -> bytearray + np.frombuffer | 2.1 | 2.3 | 2.8 |
+| lean 4 thr, 4 chunks (forces 4 thread spawns; 20 attempts) | 46.9 | 109.8 | 383.0 |
+
+1-min load average during the sweep: min 0.85, median 1.90, max 2.90
+
+### Findings
+
+1. **The lean crate loses nothing on the exact path.** Serial with a Dataset runs at 21.1 / 19.7 ns/attempt (as_all / synth5m), vs bkt_rs at 21.5 / 20.0. On 4 threads it is 7.4 / 5.0 vs 6.6 / 5.0.
+   * One codegen trap appeared on the way. A `&mut dyn Emit` call inside the per-sequence loop, even when it was never taken, forced the accumulators out of registers and cost 3 ns/attempt. Fix: a `const EMIT: bool` instantiation, so the no-output kernel contains no call.
+2. **Input marshalling cost** (ns/attempt, synth5m, int32 data, R = 1, relative to Dataset):
+
+   | mode | serial | 4 threads |
+   |---|---:|---:|
+   | copy (`to_vec`) | +0.6 | +0.6 |
+   | per-call u8 conversion (`codes`) | +0.3 | +0.8 |
+   | borrow (zero copy) | +0.2 | serial only |
+
+   * With threads, the per-call copy is an Amdahl term, because it happens on the calling thread before the parallel work: 5.6 vs 5.0 ns.
+   * On as_all, copy and borrow are within noise of Dataset serially. With 4 threads, copy costs about the same as Dataset, but per-call codes conversion costs +1.6 ns (9.0 vs 7.4).
+   * `fit()` converts once, so this cost becomes negligible over 20 iterations.
+3. **Output marshalling is dominated by page faults** (synth5m, 80 MB output):
+
+   | mode | serial ns/attempt | 4 threads ns/attempt | minor faults per call |
+   |---|---:|---:|---:|
+   | (b) caller `np.empty`, numpy uses huge pages | 23.3 (+3.6 over no-alpha) | 7.9 | about 760 |
+   | (a) bytearray: pymalloc → `mmap`, no huge pages, zeroed by pyo3 before use | 29.3 | 14.4 | 20,180 |
+   | (c) Vec + copy into bytes | 37.5 | 19.1 | 39,700 |
+
+   * Option (a)'s zeroing pass is serial and hits every 4 KiB page before the workers start, so the threads cannot hide it.
+   * C++ `new double[]` takes the same faults (19,532 per call).
+   * On as_all (7 MB) the gap is small: (a) 22.6 vs (b) 22.5 serial.
+   * **Recommendation: (b), with the caller passing `np.empty`.** It is the only safe way to get huge-page memory without the numpy crate. Its threaded cost is the serial copy into `Cell<f64>` on the calling thread: 7.9 ns/attempt vs 6.1 for bkt_rs, whose numpy-crate slice lets workers write in parallel. That gap is the price of avoiding the numpy crate.
+4. **Is fearless_simd worth it?** Plain arrays in the default build stay at SSE2 (no multiversioning without `unsafe` or a dependency); fearless_simd dispatches to AVX-512 here:
+
+   | ns/attempt | plain arrays | fearless_simd | speedup |
+   |---|---:|---:|---:|
+   | as_all, L=8, serial | 14.4 | 6.1 | 2.4x |
+   | as_all, best 4-thread (plain L=4, fearless L=8) | 5.7 | 4.4 | 1.3x |
+   | synth5m, L=8, serial | 11.5 | 5.0 | 2.3x |
+   | synth5m, L=8, 4 threads | 3.0 | 1.4 | 2.2x |
+   | 20-iteration fit, synth5m, 4 threads (plain L=4, fearless L=8) | 0.34 s | 0.15 s | 2.3x |
+
+   * Plain lanes on 4 threads are already 4-5x faster than C++ parallel.
+   * The question is whether 103 audited `unsafe` lines, behind token-checked safe APIs, plus MSRV 1.89 instead of 1.83 and a 3x larger `.so`, are worth about 2x. Shipping it as an optional feature or a separate wheel keeps the default build lean.
+5. **Rust-side EM (`fit`)**, 20 iterations, vs pyBKT `EM_fit` with the C++ E-step:
+
+   | | seconds | vs C++ serial fit | vs C++ parallel fit |
+   |---|---:|---:|---:|
+   | as_all, exact serial | 0.20 | 2.3x | 1.5x |
+   | as_all, 4 threads | 0.06 | 7.3x | 4.7x |
+   | as_all, fearless L8, 4 threads | 0.022 | 20x | 13x |
+   | synth5m, exact serial | 1.99 | 2.9x | 0.85x |
+   | synth5m, 4 threads | 0.52 | 11x | 3.2x |
+   | synth5m, plain lanes, 4 threads | 0.34 | 17x | 5.0x |
+   | synth5m, fearless L8, 4 threads | 0.15 | **39x** | 11x |
+
+   Driving pyBKT's Python `EM_fit` with the bkt_rs shim costs 0.65 s on synth5m with 4 threads, vs 0.52 s for `bkt_lean.fit`. The roughly 25% difference is per-iteration marshalling plus Python M-step overhead.
+6. **Per-call overhead on 5 attempts** (median µs per call):
+
+   | | median µs |
+   |---|---:|
+   | C++ serial | 3.6 |
+   | C++ OpenMP | 7.9 |
+   | bkt_rs serial | 2.1 |
+   | bkt_rs `threads=4` (rayon `install` on a cached pool) | 8.2 |
+   | bkt_lean serial (copy or borrow) | 3.6 |
+   | bkt_lean `threads=4` | 3.7 (a single chunk runs inline; no threads spawned) |
+   | bkt_lean forced to spawn 4 scoped threads | 110 (min 47, p90 383) |
+
+   * The 4-7 ms C++ OpenMP overhead mentioned in the task was **not** reproduced in this sweep: 7.9 µs median, 9.2 µs p90, at load ≤ 2.9. It is presumably triggered by heavier contention, such as OpenMP spin-wait threads competing with other processes.
+   * Scoped threads cost about 50-400 µs per call when they actually spawn. The fixed chunk plan avoids that for inputs under one chunk (65,536 attempts). A persistent std-only worker pool would remove it for mid-size inputs too; not done.
+   * bkt_lean serial spends about 1.5 µs more than bkt_rs on argument handling: buffer format probing (i8 → i32 → i64) and list conversions.
+
+## Replicate Part 2
+
+```sh
+cd /tmp/claude-0/exp/rust
+./build.sh          # bkt_rs (portable + native)
+./rerun_lean.sh     # build_lean.sh (inst/lean, inst/lean_simd), clippy x3, audit/deps_unsafe.py,
+                    # audit/rustsec_check.py, lean_check.py x2, fit_check.py, bench_lean_all.py (3 rounds), summarize_lean.py
+# single pieces
+PYTHONPATH=inst/default:inst/lean venv/bin/python py/lean_check.py
+(cd py && PYTHONPATH=../inst/lean_simd ../venv/bin/python bench_lean_one.py synth5m lean_fit_t4_L8_fearless)
+(cd bkt_lean && cargo tree -e normal,no-proc-macro && cargo tree -e normal,no-proc-macro --features simd)
+```
+
+Versions: rustc 1.97.0 (MSRV bkt_lean default 1.83, `+simd` 1.89), pyo3 0.29.3, fearless_simd 1.1.0, maturin 1.x, CPython 3.13. Default RUSTFLAGS; no `target-cpu=native`.
+
+### Part 2 caveats
+
+* GIL: `bkt_lean` holds the GIL for the whole call, like the C++ module. Copy, codes and Dataset inputs could release it, but `py.detach` needs a `Send` closure, and the borrow and numpy-output modes cannot be `Send` by construction.
+* abi3 at 3.11+ is required for the buffer protocol. Supporting 3.9 and 3.10 would mean non-abi3 per-version wheels; both versions are or will soon be EOL.
+* The plain-lanes numbers depend on the build's baseline ISA. An x86-64-v3 wheel would close much of the gap with fearless_simd, but it would not run on older CPUs.
+* The machine is shared. Spreads are in parentheses; as_all multithreaded cells (1-3 ms per call) are the noisiest.

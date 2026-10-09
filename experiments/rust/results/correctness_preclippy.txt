@@ -1,0 +1,96 @@
+== as_all: C++ serial reference reproduced bit-exactly from E_step.run(d,m,1,0,{}); C++ loglike (truncated int) = -251007
+  a serial: rust loglike = -251007.4258211974
+    trans           bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+    emission        bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+    init            bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+    loglike(trunc)  bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+    alpha           bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+  b rayon t=1: rust loglike = -251007.42582116683
+    trans           bit=False maxabs=1.289e-08 maxrel=1.774e-13
+    emission        bit=False maxabs=8.452e-08 maxrel=4.336e-13
+    init            bit=False maxabs=1.478e-11 maxrel=9.452e-15
+    loglike(trunc)  bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+    alpha           bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+  b rayon t=4: rust loglike = -251007.42582116683
+    trans           bit=False maxabs=1.289e-08 maxrel=1.774e-13
+    emission        bit=False maxabs=8.452e-08 maxrel=4.336e-13
+    init            bit=False maxabs=1.478e-11 maxrel=9.452e-15
+    loglike(trunc)  bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+    alpha           bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+  c no-alpha serial: rust loglike = -251007.4258211974
+    trans           bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+    emission        bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+    init            bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+    loglike(trunc)  bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+  c no-alpha t=4: rust loglike = -251007.42582116683
+    trans           bit=False maxabs=1.289e-08 maxrel=1.774e-13
+    emission        bit=False maxabs=8.452e-08 maxrel=4.336e-13
+    init            bit=False maxabs=1.478e-11 maxrel=9.452e-15
+    loglike(trunc)  bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+  d int8/int32 serial: rust loglike = -251007.4258211974
+    trans           bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+    emission        bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+    init            bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+    loglike(trunc)  bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+    alpha           bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+  d int8/uint16 t=4: rust loglike = -251007.42582116683
+    trans           bit=False maxabs=1.289e-08 maxrel=1.774e-13
+    emission        bit=False maxabs=8.452e-08 maxrel=4.336e-13
+    init            bit=False maxabs=1.478e-11 maxrel=9.452e-15
+    loglike(trunc)  bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+    alpha           bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+  [C++ parallel vs C++ serial]
+    all_trans_softcounts     bit=False maxrel=3.656e-13
+    all_emission_softcounts  bit=False maxrel=2.335e-13
+    all_initial_softcounts   bit=False maxrel=9.016e-15
+  predict serial: vs E_step.predict bit=True maxabs=0.000e+00 maxrel=0.000e+00
+  predict t=4: vs E_step.predict bit=True maxabs=0.000e+00 maxrel=0.000e+00
+  predict int8/uint16 t=4 bit-identical to int32/int64: True
+== synth5m: C++ serial reference reproduced bit-exactly from E_step.run(d,m,1,0,{}); C++ loglike (truncated int) = -3750860
+  a serial: rust loglike = -3750860.0409687287
+    trans           bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+    emission        bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+    init            bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+    loglike(trunc)  bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+    alpha           bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+  b rayon t=1: rust loglike = -3750860.0409463933
+    trans           bit=False maxabs=2.924e-07 maxrel=9.579e-14
+    emission        bit=False maxabs=2.608e-08 maxrel=1.303e-14
+    init            bit=False maxabs=1.222e-09 maxrel=1.890e-14
+    loglike(trunc)  bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+    alpha           bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+  b rayon t=4: rust loglike = -3750860.0409463933
+    trans           bit=False maxabs=2.924e-07 maxrel=9.579e-14
+    emission        bit=False maxabs=2.608e-08 maxrel=1.303e-14
+    init            bit=False maxabs=1.222e-09 maxrel=1.890e-14
+    loglike(trunc)  bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+    alpha           bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+  c no-alpha serial: rust loglike = -3750860.0409687287
+    trans           bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+    emission        bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+    init            bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+    loglike(trunc)  bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+  c no-alpha t=4: rust loglike = -3750860.0409463933
+    trans           bit=False maxabs=2.924e-07 maxrel=9.579e-14
+    emission        bit=False maxabs=2.608e-08 maxrel=1.303e-14
+    init            bit=False maxabs=1.222e-09 maxrel=1.890e-14
+    loglike(trunc)  bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+  d int8/int32 serial: rust loglike = -3750860.0409687287
+    trans           bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+    emission        bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+    init            bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+    loglike(trunc)  bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+    alpha           bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+  d int8/uint16 t=4: rust loglike = -3750860.0409463933
+    trans           bit=False maxabs=2.924e-07 maxrel=9.579e-14
+    emission        bit=False maxabs=2.608e-08 maxrel=1.303e-14
+    init            bit=False maxabs=1.222e-09 maxrel=1.890e-14
+    loglike(trunc)  bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+    alpha           bit=True  maxabs=0.000e+00 maxrel=0.000e+00
+  [C++ parallel vs C++ serial]
+    all_trans_softcounts     bit=False maxrel=1.115e-13
+    all_emission_softcounts  bit=False maxrel=2.734e-14
+    all_initial_softcounts   bit=False maxrel=1.923e-14
+  predict serial: vs E_step.predict bit=True maxabs=0.000e+00 maxrel=0.000e+00
+  predict t=4: vs E_step.predict bit=True maxabs=0.000e+00 maxrel=0.000e+00
+  predict int8/uint16 t=4 bit-identical to int32/int64: True

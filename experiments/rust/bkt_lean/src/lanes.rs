@@ -21,7 +21,8 @@
 //! Accumulation order differs from the C++ (per-lane partial sums), so results
 //! are deterministic but not bit-identical to C++ serial.
 
-use crate::kernel::{drive, plan_chunks, reduce, Counts, Input, Model, Obs, Res, Sink};
+use crate::kernel::{plan_chunks, Counts, Emit, Input, Model, Obs, Res};
+#[cfg(feature = "simd")]
 use fearless_simd::{dispatch, f64x2, f64x4, f64x8, mask64x2, mask64x4, mask64x8, prelude::*, u64x2, u64x4, u64x8, Level};
 use std::ops::Range;
 
@@ -141,6 +142,7 @@ impl<const L: usize> LaneOps for Plain<L> {
     }
 }
 
+#[cfg(feature = "simd")]
 macro_rules! fearless_ops {
     ($name:ident, $l:expr, $fv:ident, $uv:ident, $mv:ident) => {
         /// Explicit fearless_simd vectors.
@@ -230,14 +232,19 @@ macro_rules! fearless_ops {
         }
     };
 }
+#[cfg(feature = "simd")]
 fearless_ops!(Fs2, 2, f64x2, u64x2, mask64x2);
+#[cfg(feature = "simd")]
 fearless_ops!(Fs4, 4, f64x4, u64x4, mask64x4);
+#[cfg(feature = "simd")]
 fearless_ops!(Fs8, 8, f64x8, u64x8, mask64x8);
 
 #[derive(Default)]
 pub struct LaneScratch {
     b0: Vec<f64>,
     b1: Vec<f64>,
+    e0: Vec<f64>,
+    e1: Vec<f64>,
     order: Vec<usize>,
 }
 
@@ -281,10 +288,11 @@ pub fn lanes_kernel<O: LaneOps, D: Obs, R: Res, const R1: bool>(
     m: &Model,
     seqs: Range<usize>,
     c: &mut Counts,
-    mut sink: Option<&mut Sink>,
+    emit: &mut dyn Emit,
     sc: &mut LaneScratch,
 ) {
     let ln = O::L;
+    let active = emit.active();
     let nr = m.a.len();
     let mut order = std::mem::take(&mut sc.order);
     order.clear();
@@ -310,16 +318,12 @@ pub fn lanes_kernel<O: LaneOps, D: Obs, R: Res, const R1: bool>(
         let mut tl = [0usize; MAXL];
         let mut lim = [0usize; MAXL];
         let mut tlf = [0.0f64; MAXL];
-        let mut off = [0usize; MAXL];
         for l in 0..ln {
             let s = grp[l.min(nl - 1)];
             st[l] = inp.span(s).0;
             tl[l] = if l < nl { inp.span(s).1 } else { 0 }; // dummy lanes: never active
             lim[l] = tl[l].max(1) - 1;
             tlf[l] = tl[l] as f64;
-            if let Some(sk) = sink.as_deref() {
-                off[l] = sk.offs[s - sk.first];
-            }
         }
         let tlv = o.load(&tlf);
         let tmax = tl[0];
@@ -377,13 +381,14 @@ pub fn lanes_kernel<O: LaneOps, D: Obs, R: Res, const R1: bool>(
             let b = t * ln;
             o.store(x0, &mut sc.b0[b..b + ln]);
             o.store(x1, &mut sc.b1[b..b + ln]);
-            if let Some(sk) = sink.as_deref_mut() {
-                for l in 0..nl {
-                    if t < tl[l] {
-                        sk.r0[off[l] + t] = sc.b0[b + l];
-                        sk.r1[off[l] + t] = sc.b1[b + l];
-                    }
-                }
+        }
+        if active {
+            for l in 0..nl {
+                sc.e0.clear();
+                sc.e1.clear();
+                sc.e0.extend((0..tl[l]).map(|t| sc.b0[t * ln + l]));
+                sc.e1.extend((0..tl[l]).map(|t| sc.b1[t * ln + l]));
+                emit.emit(st[l], &sc.e0, &sc.e1);
             }
         }
         let mut lpa = [0.0f64; MAXL];
@@ -493,11 +498,10 @@ pub fn lanes_kernel<O: LaneOps, D: Obs, R: Res, const R1: bool>(
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum LaneImpl {
-    /// plain arrays, compiled for the build's baseline target only
-    Autovec,
-    /// plain arrays, inside fearless_simd::dispatch! (runtime ISA selection)
-    AutovecDispatch,
-    /// explicit fearless_simd vectors, dispatched at runtime
+    /// plain arrays, compiled for the build's baseline target only (no dependency)
+    Plain,
+    /// explicit fearless_simd vectors with runtime ISA dispatch (feature "simd")
+    #[cfg(feature = "simd")]
     Fearless,
 }
 
@@ -508,48 +512,45 @@ fn kern<O: LaneOps, D: Obs, R: Res>(
     m: &Model,
     seqs: Range<usize>,
     c: &mut Counts,
-    sink: Option<&mut Sink>,
+    emit: &mut dyn Emit,
     sc: &mut LaneScratch,
 ) {
     if m.a.len() == 1 {
-        lanes_kernel::<O, D, R, true>(o, inp, m, seqs, c, sink, sc)
+        lanes_kernel::<O, D, R, true>(o, inp, m, seqs, c, emit, sc)
     } else {
-        lanes_kernel::<O, D, R, false>(o, inp, m, seqs, c, sink, sc)
+        lanes_kernel::<O, D, R, false>(o, inp, m, seqs, c, emit, sc)
     }
 }
 
+/// One chunk of the lane kernel. Requires K == 1 and lanes in {2, 4, 8}.
 #[allow(clippy::too_many_arguments)]
-fn run_chunk<D: Obs, R: Res>(
+pub fn run_chunk<D: Obs, R: Res>(
     imp: LaneImpl,
-    level: Level,
     lanes: usize,
     inp: &Input<D, R>,
     m: &Model,
     seqs: Range<usize>,
     c: &mut Counts,
-    sink: Option<&mut Sink>,
+    emit: &mut dyn Emit,
     sc: &mut LaneScratch,
 ) {
     match imp {
-        LaneImpl::Autovec => match lanes {
-            2 => kern(Plain::<2>, inp, m, seqs, c, sink, sc),
-            4 => kern(Plain::<4>, inp, m, seqs, c, sink, sc),
-            _ => kern(Plain::<8>, inp, m, seqs, c, sink, sc),
+        LaneImpl::Plain => match lanes {
+            2 => kern(Plain::<2>, inp, m, seqs, c, emit, sc),
+            4 => kern(Plain::<4>, inp, m, seqs, c, emit, sc),
+            _ => kern(Plain::<8>, inp, m, seqs, c, emit, sc),
         },
-        LaneImpl::AutovecDispatch => dispatch!(level, _simd => match lanes {
-            2 => kern(Plain::<2>, inp, m, seqs, c, sink, sc),
-            4 => kern(Plain::<4>, inp, m, seqs, c, sink, sc),
-            _ => kern(Plain::<8>, inp, m, seqs, c, sink, sc),
-        }),
-        LaneImpl::Fearless => dispatch!(level, simd => match lanes {
-            2 => kern(Fs2(simd), inp, m, seqs, c, sink, sc),
-            4 => kern(Fs4(simd), inp, m, seqs, c, sink, sc),
-            _ => kern(Fs8(simd), inp, m, seqs, c, sink, sc),
+        #[cfg(feature = "simd")]
+        LaneImpl::Fearless => dispatch!(level(), simd => match lanes {
+            2 => kern(Fs2(simd), inp, m, seqs, c, emit, sc),
+            4 => kern(Fs4(simd), inp, m, seqs, c, emit, sc),
+            _ => kern(Fs8(simd), inp, m, seqs, c, emit, sc),
         }),
     }
 }
 
-/// Runtime SIMD level, optionally capped with BKT_RS_ISA=sse2|sse4_2|avx2|avx512.
+/// Runtime SIMD level, optionally capped with BKT_RS_ISA=sse2|sse4_2|avx2.
+#[cfg(feature = "simd")]
 pub fn level() -> Level {
     let l = Level::new();
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -564,33 +565,15 @@ pub fn level() -> Level {
     l
 }
 
-pub fn level_name(l: Level) -> String {
-    format!("{l:?}")
-}
-
-/// Lockstep variant. Always chunked (threads == 0 runs the chunks on the calling
-/// thread), so the result is identical for every thread count. Requires K == 1.
-#[allow(clippy::too_many_arguments)]
-pub fn e_step_lanes<D: Obs, R: Res>(
-    inp: &Input<D, R>,
-    m: &Model,
-    lanes: usize,
-    imp: LaneImpl,
-    level: Level,
-    threads: usize,
-    chunk_attempts: usize,
-    out: Option<(&mut [f64], &mut [f64])>,
-) -> Counts {
-    assert!(inp.k == 1 && matches!(lanes, 2 | 4 | 8));
-    let (nr, k) = (m.a.len(), inp.k);
-    let chunks = plan_chunks(inp.lengths, chunk_attempts);
-    let parts = drive(inp, &chunks, threads, out, |rg, sink| {
-        let mut c = Counts::zero(nr, k);
-        let mut sc = LaneScratch::default();
-        run_chunk(imp, level, lanes, inp, m, rg, &mut c, sink, &mut sc);
-        c
-    });
-    reduce(&parts, nr, k)
+pub fn level_name() -> String {
+    #[cfg(feature = "simd")]
+    {
+        format!("{:?}", level())
+    }
+    #[cfg(not(feature = "simd"))]
+    {
+        "none (plain arrays, build baseline)".to_string()
+    }
 }
 
 /// Lane utilization of the length-sorted grouping: sum(lengths) / sum(L * group max).
@@ -604,8 +587,8 @@ pub fn utilization(lengths: &[i64], lanes: usize, chunk_attempts: usize, sort: b
         }
         for g in v.chunks(lanes) {
             used += g.iter().sum::<i64>() as u64;
-            slots += (*g.iter().max().unwrap() as u64) * lanes as u64;
+            slots += (*g.iter().max().unwrap_or(&0) as u64) * lanes as u64;
         }
     }
-    used as f64 / slots as f64
+    used as f64 / slots.max(1) as f64
 }

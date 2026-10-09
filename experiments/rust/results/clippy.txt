@@ -1,0 +1,3 @@
+    Finished `release` profile [optimized] target(s) in 0.04s
+    Finished `release` profile [optimized] target(s) in 0.72s
+    Finished `release` profile [optimized] target(s) in 0.56s

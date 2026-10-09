@@ -1,0 +1,21 @@
+bkt_lean HAS_SIMD = True level = Avx512(Avx512 { _private: () })
+as_all: exact serial bit-identical to C++ for input copy/borrow/codes/Dataset x alpha none/bytearray/bytes/numpy x int32+int64/int8+uint16
+as_all: chunked: 1 hash over threads {1,2,3,4,8} x outputs; == bkt_rs chunked bits: True; max rel vs C++ 4.3e-13
+as_all: lanes plain L=2: hashes over threads {0,1,4} = 1, == bkt_rs lanes bits: True, max rel vs C++ 4.3e-13
+as_all: lanes plain L=4: hashes over threads {0,1,4} = 1, == bkt_rs lanes bits: True, max rel vs C++ 4.4e-13
+as_all: lanes plain L=8: hashes over threads {0,1,4} = 1, == bkt_rs lanes bits: True, max rel vs C++ 4.3e-13
+as_all: lanes fearless L=2: hashes over threads {0,1,4} = 1, == bkt_rs lanes bits: True, max rel vs C++ 4.3e-13
+as_all: lanes fearless L=4: hashes over threads {0,1,4} = 1, == bkt_rs lanes bits: True, max rel vs C++ 4.4e-13
+as_all: lanes fearless L=8: hashes over threads {0,1,4} = 1, == bkt_rs lanes bits: True, max rel vs C++ 4.3e-13
+as_all: predict bit-identical to E_step.predict (threads 0/4, all output and input modes)
+synth5m: exact serial bit-identical to C++ for input copy/borrow/codes/Dataset x alpha none/bytearray/bytes/numpy x int32+int64/int8+uint16
+synth5m: chunked: 1 hash over threads {1,2,3,4,8} x outputs; == bkt_rs chunked bits: True; max rel vs C++ 9.6e-14
+synth5m: lanes plain L=2: hashes over threads {0,1,4} = 1, == bkt_rs lanes bits: True, max rel vs C++ 9.6e-14
+synth5m: lanes plain L=4: hashes over threads {0,1,4} = 1, == bkt_rs lanes bits: True, max rel vs C++ 9.4e-14
+synth5m: lanes plain L=8: hashes over threads {0,1,4} = 1, == bkt_rs lanes bits: True, max rel vs C++ 9.5e-14
+synth5m: lanes fearless L=2: hashes over threads {0,1,4} = 1, == bkt_rs lanes bits: True, max rel vs C++ 9.6e-14
+synth5m: lanes fearless L=4: hashes over threads {0,1,4} = 1, == bkt_rs lanes bits: True, max rel vs C++ 9.4e-14
+synth5m: lanes fearless L=8: hashes over threads {0,1,4} = 1, == bkt_rs lanes bits: True, max rel vs C++ 9.5e-14
+synth5m: predict bit-identical to E_step.predict (threads 0/4, all output and input modes)
+generic random checks: 1966
+TOTAL FAILURES: 0

@@ -221,7 +221,43 @@ and 10th smallest).
 
 ## 5. Rust
 
-See `rust/REPORT.md`. (Summary added when the prototype finished; see below.)
+Full details, commands and tables are in `rust/REPORT.md` (part 1: `bkt_rs`; part 2: `bkt_lean`). Rebuild with
+`rust/rerun_all.sh` / `rust/rerun_lean.sh`. Both crates have `#![forbid(unsafe_code)]` and pass
+`cargo clippy --all-targets -- -D warnings`. The earlier `unsafe` baseline (`archive/`) is not
+published, so `rerun_all.sh` can't rebuild that one comparison column.
+
+| | `bkt_rs` | `bkt_lean` | `bkt_lean` + `simd` |
+| --- | --- | --- | --- |
+| dependencies | pyo3, numpy, rayon, fearless_simd | **pyo3 only** | pyo3 + fearless_simd (optional feature) |
+| crates linked / `unsafe` lines in dependencies | 20 / 3,704 | 5 / 2,457 | 6 / 2,560 |
+| minimum Rust / Python | 1.89 / 3.9 (abi3) | 1.83 / **3.11** (abi3; pyo3's buffer protocol needs 3.11) | 1.89 / 3.11 |
+| wheel size | 2.4 MB | 0.96 MB | 2.8 MB |
+
+No RustSec advisory applies to the resolved versions.
+
+ns per answer (ASSISTments merged / synthetic 5M); C++ serial is 49.1 / 54.7, C++ on 4 threads 29.1 / 14.1:
+
+| `bkt_lean` path | ASSISTments | synthetic |
+| --- | --- | --- |
+| exact, serial (bit-identical to C++) | 21.1 | 19.7 |
+| exact, 4 threads (deterministic fixed chunks) | 7.4 | 5.0 |
+| plain-array lanes, 4 threads (SSE2) | 5.7 | 3.0 |
+| fearless_simd lanes, 4 threads | 4.4 | 1.4 |
+
+- **Data transfer:** inputs are copied once into compact codes (+0.3–0.6 ns/answer), or not at all when
+  using `fit()` or a `Dataset` that is converted once. pyo3's zero-copy buffer view can't be shared across
+  threads. For outputs, a caller-allocated `np.empty` was fastest (23.3 ns/answer; numpy's huge pages
+  mean about 760 page faults); a `bytearray` was 29.3, and a `bytes` copy 37.5.
+- **`fit()` runs the whole EM in Rust**, so data crosses the Python boundary once. Serial results are
+  bit-identical to pyBKT's `EM_fit` (K=1/R=1 and K=3/R=4); threaded runs are within 8.5e-13. Synthetic
+  data, 20 iterations: 1.99 s serial, 0.52 s on 4 threads, 0.15 s with fearless lanes, against 5.82 s
+  serial and 1.69 s parallel for C++.
+- **Independent check** (`lean_fit_check.py`, 4 ASSISTments skills, 20 iterations vs compiled
+  `EM_fit`): bit-identical serial and on 4 threads; fearless lanes within 1.3e-14.
+- **Stopping rule:** pyBKT's integer-truncated log-likelihood stops EM at 24 iterations on merged
+  ASSISTments where float comparison takes 47. `compat_int_loglike=True` reproduces pyBKT's behaviour;
+  the default compares floats.
+- **Limits:** the GIL is held for the whole call, as in C++. The default build's plain lanes use SSE2 only.
 
 ## 6. Exact work sharing through prefixes
 
@@ -317,9 +353,11 @@ calls taking 6.5 s, about 7.8 ms each. Most of that is OpenMP's per-call cost
 \* The old build had already turned serial by this point, because of its sticky
 `omp_set_num_threads(1)`.
 
-These were measured at load average 2.5–3 on 4 cores. Four spinning OpenMP
-threads competing for busy cores turn a barrier into milliseconds. This needs
-re-measuring on an idle machine. Either way, **real BKT data has many small
+These were measured at load average 2.5–3 on 4 cores. **Not reproduced**: the Rust agent's
+separate run (load average no more than 2.9) measured C++ OpenMP at 7.9 µs median per call on 5 answers.
+So the milliseconds-per-call cost depends on contention: OpenMP threads that spin while
+waiting stall when other processes hold the cores. It needs a controlled re-measurement (an idle
+machine, then deliberate background load) before it is treated as a general finding. Either way, **real BKT data has many small
 skills, and parallelizing inside one small E-step costs more than it saves.**
 Options: use one thread below roughly 50k answers, and parallelize across skills
 (or `num_fits` restarts) instead of within an E-step.

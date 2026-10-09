@@ -1,0 +1,8 @@
+as_all chunked: distinct hashes over threads {1,2,3,4,8,16} x 5 runs = 1 {'b550668678e13265'}
+as_all serial: distinct hashes over 5 runs = 1
+as_all chunk 16384 vs 65536 identical? False
+as_all C++ parallel: distinct count hashes over 20 runs = 1
+synth5m chunked: distinct hashes over threads {1,2,3,4,8,16} x 5 runs = 1 {'d0a5b06e541127b3'}
+synth5m serial: distinct hashes over 5 runs = 1
+synth5m chunk 16384 vs 65536 identical? False
+synth5m C++ parallel: distinct count hashes over 20 runs = 7
