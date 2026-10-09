@@ -199,6 +199,26 @@ the C++ counts to within 3e-13 relative error.
 It is 47–210× faster than today's pure-Python build with no new dependency.
 Long, skewed sequences hurt it, because few students are active per step.
 
+### End-to-end fit: pure Python vs vectorized NumPy vs C++ (`py_vs_vec_fit.py`, `vec_vs_cpp_fit.py`)
+
+20 EM iterations from the same start, with no early stop, on four ASSISTments skills (largest, 6th, median,
+and 10th smallest).
+
+| Skill | Answers | Pure-Python pyBKT | Vectorized NumPy | Speedup | Compiled C++ |
+| --- | --- | --- | --- | --- | --- |
+| Percent Of | 22,908 | 15.48 s | 0.398 s | 39x | 0.02 s |
+| Equation Solving Two or Fewer Steps | 17,311 | 12.08 s | 0.117 s | 103x | 0.02 s |
+| Histogram as Table or Graph | 1,804 | 1.10 s | 0.018 s | 60x | <0.01 s |
+| Choose an Equation from Given Information | 89 | 0.05 s | 0.003 s | 18x | <0.01 s |
+| **Total** | | **28.7 s** | **0.54 s** | **54x** | about 0.04 s |
+
+- Vectorized vs **C++**: fitted parameters match to within **3.4e-15** after 20 iterations.
+- Vectorized vs **pyBKT pure Python**: they differ by up to 0.085, because the pure-Python E-step drops
+  the evidence from one-answer students (issue #72); 13 of 41 students in the last skill have one answer.
+  The vectorized E-step is the correct one here.
+- It is still about 5–20x slower than C++ on large skills, because the per-time-step Python overhead
+  dominates when few students are active per step.
+
 ## 5. Rust
 
 See `rust/REPORT.md`. (Summary added when the prototype finished; see below.)
