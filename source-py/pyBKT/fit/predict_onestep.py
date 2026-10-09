@@ -32,11 +32,16 @@ def run(model, data, parallel = True):
     for j in range(num_subparts):
         result['all_emission_softcounts'][j] = result['all_emission_softcounts'][j].transpose()
     state_predictions = predict_onestep_states(data, model, result['alpha_out'])
-    # multiguess solution, should work
-    correct_emission_predictions = np.expand_dims(model["guesses"], axis = 1) @ np.expand_dims(state_predictions[0,:], axis = 0) + np.expand_dims(1-model["slips"], axis = 1) @ np.expand_dims(state_predictions[1,:], axis = 0)
-    #correct_emission_predictions = model['guesses'] * np.asarray([state_predictions[0,:]]).T + (1 - model['slips']) * np.asarray([state_predictions[1,:]]).T
-    flattened_predictions = np.take_along_axis(correct_emission_predictions, (data['data'] != 0).argmax(axis = 0)[:, None].T, axis = 0)
-    return (flattened_predictions.ravel(), state_predictions)
+    return (correct_predictions(model, data, state_predictions), state_predictions)
+
+def correct_predictions(model, data, state_predictions):
+    """P(correct) for each attempt, under the guess and slip of the subpart that attempt used."""
+    alldata = data["data"]
+    # each attempt is filed under one subpart (a row of data); an attempt with no response uses the first
+    subpart = 0 if alldata.shape[0] == 1 else (alldata != 0).argmax(axis = 0)
+    guesses = np.asarray(model["guesses"])[subpart]
+    not_slips = (1 - np.asarray(model["slips"]))[subpart]
+    return guesses * state_predictions[0] + not_slips * state_predictions[1]
 
 def predict_onestep_states(data, model, forward_messages):
     alldata, allresources, starts, lengths, learns, forgets, guesses, slips, prior = \
@@ -52,10 +57,7 @@ def predict_onestep_states(data, model, forward_messages):
     interleave(As[0], 1 - learns, forgets)
     interleave(As[1], learns, 1 - forgets)
 
-    fd_temp = np.empty((2 * bigT, ))
-    for i in range(2):
-        for j in range(bigT):
-            fd_temp[i * bigT + j] = forward_messages[i][j]
+    fd_temp = np.ravel(forward_messages)
 
     # outputs
     all_predictions = np.empty((2 * bigT, ))
