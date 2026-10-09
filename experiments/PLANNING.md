@@ -1,7 +1,8 @@
 # Turning the research into deliverable chunks: working notes
 
-Status: draft notes, revised as decisions are made (latest: 2026-10-09, after syncing with upstream).
-Evidence for every number is in `README.md` (sections in brackets) or `rust/REPORT.md`.
+Status: decision log, revised as decisions are made (latest: 2026-10-09, planning round 5).
+**The actionable plan is `HANDOFF.md`**; upstream texts are in `ISSUE_DRAFTS.md`. Evidence for every
+number is in `README.md` (sections in brackets) or `rust/REPORT.md`.
 
 Contents: 1 inventory · 2 ways to slice · 3 decisions · 4 what a new user gets · 5 upstream sync ·
 6 adoption lens · 7 plan v3 (with prerequisites, conflicts, evidence branch) · 8 critique ·
@@ -88,7 +89,8 @@ Round 1:
 - **Rust:** optional backend, later, once C++ and Python are stable.
 
 Round 2:
-- **Process:** open a tracking issue upstream first, listing the trains, then send PRs.
+- **Process:** open a tracking issue upstream first, listing the trains, then send PRs. (Superseded in
+  round 5: topic issues, no umbrella.)
 - **Result-changing fixes:** ask the maintainer, case by case (listed in the tracking issue).
 - **First train:** sync with upstream first; some issues are already logged and fixed (done in section 5).
 - **Explaining the work:** a five-line summary on every PR, README sections for user-visible changes, and
@@ -97,7 +99,8 @@ Round 2:
 Round 3:
 - **Release ask:** after A1 (NumPy 2 fix) and A2 (harness) are merged.
 - **Windows wheels:** yes, in Train A (A5).
-- **Tracking issue:** drafted here (`TRACKING_ISSUE.md`) for the owner to review and post.
+- **Tracking issue:** drafted here for the owner to review and post (now `ISSUE_DRAFTS.md`, split into
+  topic issues in round 5).
 - **Release path:** one sentence in the release ask ("tag it like 1.4.3, without a `v`"); propose the
   cleanup (A3) in the tracking issue for later.
 
@@ -106,6 +109,21 @@ Round 4:
 - **Scope:** #45 only through the diagnostics warning (D1); #50 later, outside the first batches.
 - **Evidence:** a clean, neutrally named fork branch with a trimmed set (section 7, "Evidence branch").
 - **Next:** keep refining the plan before any branch work.
+
+Round 5 (after reading all 55 upstream issues and the full git history):
+- **Issue layout:** topic issues, no umbrella; existing threads reused (#65, #55/#57, #54).
+- **Cadence:** staged waves. Wave 1 now: #65 follow-up, Rust discussion, single-tree proposal, #54
+  comment. Wave 2 after the release: bug issues one at a time with their PRs, live-update proposal on #55.
+  Wave 3: speed, diagnostics, optional estimators, large data.
+- **Bug reports:** one issue per result-changing bug, each with a short repro.
+- **Priority after Train A:** correctness, then live updates.
+- **Single Python source tree:** propose early (wave 1); build it only if welcomed, before the Python
+  bug fixes.
+- **Windows wheels:** ask in #65 first, because of #32.
+- **`data_helper.py` order:** bug fixes first; the vectorized `convert_data` (C3) comes after and keeps
+  the fixed behaviour.
+- **Rust:** a discussion issue now, framed as "SIMD and multithreading help, but they are riskier to build
+  in C and C++"; build nothing upstream until the maintainer replies.
 
 ## 4. What a new user gets today (PyPI 1.4.3, checked 2026-10-09)
 
@@ -318,25 +336,21 @@ interest first (open question 1).
 ### Evidence branch (decided in round 4; not created yet)
 A neutrally named fork branch holding only what a reader of the tracking issue needs:
 - `EVIDENCE.md`: every number in the issue mapped to a script, a command, a result file and the data.
-- **Small standalone repros** for the section 1 bugs, like `nan_user_ids.py`: 20 lines on synthetic data,
-  seconds to run, no ASSISTments download. Still to write: regex skill names (K5), tied `order_id`
-  (K6), integer log-likelihood (K1); K7 needs pandas 2 and 3 environments, so describe it instead.
+- **Small standalone repros** for the section 1 bugs: `integer_loglike.py` (K1), `regex_skill_names.py`
+  (K5), `tied_order_ids.py` (K6), `nan_user_ids.py` (K8); 20–30 lines on synthetic data, seconds to run,
+  no ASSISTments download. K7 needs pandas 2 and 3 environments, so it is described instead.
 - The scripts behind the speed and research numbers (`bench.py`, `py_vs_vec_fit.py`, `load_bench.py`,
   `duckdb_convert.py`, `degeneracy_audit.py`, `map_em.py`, `squarem.py`, `squarem_tol.py`,
   `check_smoothing.py`, `cappe_moulines.py`, `live_bench.py`), their result CSVs, `fetch_data.sh`, and
   `rust/` (lean crate and REPORT only).
-- Left out: `PLANNING.md`, `TRACKING_ISSUE.md`, superseded scripts (`np_estep_old.py`, the ad-hoc online
+- Left out: `PLANNING.md`, `HANDOFF.md`, `ISSUE_DRAFTS.md`, superseded scripts (`np_estep_old.py`, the ad-hoc online
   variants), session notes.
 
-### Tracking issue outline (draft text in `TRACKING_ISSUE.md`)
-1. One paragraph: what was researched, and that #64–#73 were the first results.
-2. Train A: what's left before a release (A1–A5) and the release-path note.
-3. Result-changing fixes for the maintainer to decide (B2–B5, B7): one line each with the effect, the
-   size of the change, and how the harness shows the new numbers.
-4. Speed, results unchanged (B1, B6, Train C): one line each with the measured benefit.
-5. Opt-in research features (Trains D and E): which, if any, they want in-tree, and where docs should live.
-6. Rust: a separate package later; no change to upstream's toolchain.
-7. Links to evidence on the fork (this directory). Keep the issue itself under one screen per section.
+### Issue layout (round 5)
+Topic issues in waves replace the single tracking issue; texts in `ISSUE_DRAFTS.md`, diagram and order in
+`HANDOFF.md` sections 3 and 4. Train B's order is B5 (integer log-likelihood, a 2021 regression), B2
+(regex names), B4 (missing ids), B3 (ties), B7 (multipair keys), with B6 after B5. T1 (one Python source
+tree) is new: proposed in wave 1, built before B2–B4 only if welcomed.
 
 ## 8. Critique
 
@@ -407,12 +421,11 @@ A1 (#65 item 2), A2 (harness), A4 (metadata/docs), B1 (C++ safety, results uncha
 request after A1 + A2. All results-unchanged except A1, which only removes a crash. A5 (Windows) follows
 B1. A3 waits for the maintainer's answer in the tracking issue.
 
-## 9. Open questions (round 5)
-1. Two copies of the Python code: propose one tree before the Python fixes, keep two, or only mention it
-   in the tracking issue?
-2. Evidence branch name (for example `evidence/bkt-research`), and is the trimmed set above right?
-3. Run the harness on every wheel platform (A2 follow-up) now, later, or not at all?
-4. `data_helper.py` order: vectorized `convert_data` (C3) first and fixes on top, or the small fixes first?
+## 9. Open questions
+Round 5's questions were answered (section 3). Still open, with defaults in `HANDOFF.md` section 9: the
+evidence branch name (default `evidence/bkt-research`) and contents; running the harness on every wheel
+platform. Waiting on the maintainer: release and Windows (#65), the Rust discussion, the single-tree
+proposal.
 
 ## 10. Coverage check: every experiment mapped to the plan
 
@@ -443,3 +456,5 @@ B1. A3 waits for the maintainer's answer in the tracking issue.
 | Literature checks (KT², Khajah, deep research) | online EM for BKT parameters is new for BKT; gradient fitters for flexibility | D/E docs; Not planned |
 | PyPI check (planning round 2) | pure-Python wheel; import fails on scikit-learn ≥ 1.8; fit fails on NumPy 2 | A1, A4, release request (rest fixed upstream) |
 | `upstream_sync_check.sh` (planning round 3) | both fork branches merge cleanly onto master; only obsolete xfail markers fail | A2, B1, C2, C3 |
+| `integer_loglike.py`, `regex_skill_names.py`, `tied_order_ids.py` (planning round 5) | bug repros: whole-number EM trace stops after 15 iterations once two values round alike; regex-named skill predicted at 0.5 on both call paths; same rows in two orders give parameters 0.14 (compiled) / 0.63 (pure Python) apart | B5, B2, B3 and their issues |
+| Upstream issues (all 55) and git history (393 commits), round 5 | integer log-likelihood is a 2021 regression (`dba0ddb`); a 2023 Windows/macOS wheel attempt was removed the same day; Windows C++ unsupported (#32); `Roster` already updates per answer; #21/#27/#36/#38 show the degenerate-fit confusion | B5, A5, E1, D1; Rust framing |

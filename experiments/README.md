@@ -1,5 +1,8 @@
 # pyBKT experiments: end-to-end performance, online EM, Rust
 
+**Picking this work up?** Start with `HANDOFF.md` (the plan, task cards and rules), then
+`ISSUE_DRAFTS.md` (upstream texts by wave) and `PLANNING.md` (decision log). This README is the evidence.
+
 These are experiments, not a deliverable. Nothing in this directory is imported by
 pyBKT, and nothing here changes library behaviour. The library work is on branch
 `claude/pybkt-performance-research-xqv9jv`: phase 1 crash and leak fixes, a
