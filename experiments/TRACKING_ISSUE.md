@@ -74,8 +74,9 @@ Notes for the owner (not part of the texts):
 >
 > ### 2. Same results, safer and faster
 >
-> - **C++ E-step safety:** a stack array per student crashes on a student with 400k answers; passing
+> - **C++ E-step safety:** a stack array per student crashes the process for a student with 200,000 answers; passing
 >   `parallel=False` once turns OpenMP off for the rest of the process; `delete` is used on `new[]` memory.
+>   Replacing the variable-length stack arrays is also what MSVC needs for Windows wheels.
 > - **Reproducible parallel fits:** threads add their counts in arrival order, so compiled parallel fits
 >   differ in the last bits from run to run. Fixed blocks summed in a fixed order remove that.
 > - **Predict from the forward pass**, without a templates × rows matrix: 1M rows 60 ms to 14 ms;

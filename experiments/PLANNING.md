@@ -4,7 +4,8 @@ Status: draft notes, revised as decisions are made (latest: 2026-10-09, after sy
 Evidence for every number is in `README.md` (sections in brackets) or `rust/REPORT.md`.
 
 Contents: 1 inventory · 2 ways to slice · 3 decisions · 4 what a new user gets · 5 upstream sync ·
-6 adoption lens · 7 plan v3 · 8 critique · 9 open questions · 10 coverage check.
+6 adoption lens · 7 plan v3 (with prerequisites, conflicts, evidence branch) · 8 critique ·
+9 open questions · 10 coverage check.
 
 ## 1. Inventory: what the research produced
 
@@ -99,6 +100,12 @@ Round 3:
 - **Tracking issue:** drafted here (`TRACKING_ISSUE.md`) for the owner to review and post.
 - **Release path:** one sentence in the release ask ("tag it like 1.4.3, without a `v`"); propose the
   cleanup (A3) in the tracking issue for later.
+
+Round 4:
+- **Train A's remainder** goes into #65 as follow-up comments; the new tracking issue covers the rest.
+- **Scope:** #45 only through the diagnostics warning (D1); #50 later, outside the first batches.
+- **Evidence:** a clean, neutrally named fork branch with a trimmed set (section 7, "Evidence branch").
+- **Next:** keep refining the plan before any branch work.
 
 ## 4. What a new user gets today (PyPI 1.4.3, checked 2026-10-09)
 
@@ -216,7 +223,7 @@ Done upstream: build requirement, `PYBKT_REQUIRE_CPP`, optional scikit-learn, Li
 | A2 | Regression harness on top of A1: delete the three obsolete markers and `FAILS_ON_NUMPY2`; CI runs compiled on Python 3.10–3.14 and pure Python on NumPy 1 and 2 | infra | M (506 lines, 12 files) | all later result-checked PRs depend on it |
 | A3 | One release path: `release.yml` also runs on tag push, `publish.yml` retired; short "how to release" note | infra | S | the maintainer's process: ask in the tracking issue first |
 | A4 | Metadata and install docs: `python_requires >= 3.10` (matches the wheel matrix), classifiers 3.10–3.14, README "Installing" says wheels are compiled and documents `PYBKT_REQUIRE_CPP` (asked for in #65) | infra | S | |
-| A5 | Windows wheels (MSVC, `/openmp`) | infra | M | decided: in Train A; can follow the release |
+| A5 | Windows wheels (MSVC, `/openmp`) | infra | M | decided: in Train A; needs B1 first (prerequisites below); can follow the release |
 | — | Release request in #65, after A1 + A2, with the tag note and the result changes from #70 and #72 | — | — | decided |
 
 ### Train B — "results are correct and reproducible"
@@ -224,7 +231,7 @@ Result-changing fixes ([fix]) go into the tracking issue first; the maintainer d
 
 | PR | Content | Class | Size |
 | --- | --- | --- | --- |
-| B1 | C++ safety from phase 1: heap scratch space instead of the stack array (crash at 200k answers), `delete[]`, leak, `parallel=False` no longer sticky | same | S |
+| B1 | C++ safety from phase 1: heap scratch space instead of the stack arrays (crash at 200k answers; also what MSVC needs for A5), `delete[]`, leak, `parallel=False` no longer sticky | same | S |
 | B2 | Escape skill names in the skill regex (K5) | fix | S |
 | B3 | Stable order for tied `order_id` (K6) | fix | S |
 | B4 | Missing user ids (K8): drop them with a warning, or raise; never return values above 1 | fix | S |
@@ -275,6 +282,51 @@ installed. Does not ask upstream to adopt a Rust toolchain. Proposed only after 
 | nanobind / pybind11 binding swap | binding overhead isn't the cost; smaller wheels only | `deep_research_summary.md` |
 | Numba / Cython pure-Python path | vectorized NumPy gets 54x with no new dependency | ROADMAP alternatives |
 | Polars as a required dependency | DuckDB/pyarrow optional is enough; pandas path improved instead | README §7 |
+
+### Prerequisites and conflicts (found in planning round 4)
+
+**Windows wheels (A5) depend on B1.** Upstream has never built the C++ extension on Windows (README:
+"Optional - for OS X and Linux"). A strict check (`g++ -std=c++17 -pedantic-errors -Wvla`, a stand-in for
+MSVC, which has no compiler here) finds on master:
+- five variable-length stack arrays in `E_step.cpp` (lines 200, 201, 225, 243, 262), four of them with
+  GCC's `__attribute__((aligned(16)))`. MSVC rejects both. Phase 1 (B1) replaces them with
+  `std::vector`; the same check on phase 1 merged onto master finds none.
+- `#include <alloca.h>` in `E_step.cpp`, `predict_onestep_states.cpp` and `synthetic_data_helper.cpp`.
+  MSVC has no such header. No file calls `alloca`, so the includes are dead; phase 1 removes only the
+  first.
+- `setup.py` passes GCC flags (`-fopenmp`, `-fPIC`) on every non-macOS platform; MSVC needs `/openmp`.
+So A5 = B1 + delete two dead includes + an MSVC branch in `setup.py` + `windows-latest` in the wheel
+matrix. `release.yml` builds wheels on every PR, so the A5 PR tests itself.
+
+**Two copies of the Python code.** `source-cpp/pyBKT` and `source-py/pyBKT` each hold the same 24 Python
+files; 17 are identical, 7 differ (`EM_fit.py` by 230 lines, `predict_onestep.py` by 67, the others by
+2–4). Every Python change is made twice: phase 1's `convert_data` change is 88 lines in each copy. #72
+was a drift between the copies. One tree, with the compiled E-step optional at import, would halve every
+later Python PR and remove that class of bug. It's a packaging change, so it needs the maintainer's
+interest first (open question 1).
+
+**Conflict hotspots** (several PRs edit the same file; merge them in this order):
+
+| File | PRs touching it | Suggested order |
+| --- | --- | --- |
+| `fit/E_step.cpp` | B1, B5, B6, C4, C5, C6, E5 | B1 (also unblocks A5), B5, B6, C4, C6, C5 after its measurement |
+| `util/data_helper.py` (two copies) | C3, B2, B3, B4, B7, C6, C7 | C3 first (same results, vectorized), then each fix as a small diff on top, so every result change is isolated |
+| `models/Model.py` (two copies) | B7, C8, C9, D1, D2, E1 | E1 and D1 add code only; C8/C9 last (largest) |
+| `fit/EM_fit.py` (two copies, differ) | A1, B5, C1, C4, C9, D3 | A1 first; C1 replaces the pure-Python loop |
+| `tests/reference/*.json` | every [fix] PR | one at a time; each PR's JSON diff shows its result change |
+
+### Evidence branch (decided in round 4; not created yet)
+A neutrally named fork branch holding only what a reader of the tracking issue needs:
+- `EVIDENCE.md`: every number in the issue mapped to a script, a command, a result file and the data.
+- **Small standalone repros** for the section 1 bugs, like `nan_user_ids.py`: 20 lines on synthetic data,
+  seconds to run, no ASSISTments download. Still to write: regex skill names (K5), tied `order_id`
+  (K6), integer log-likelihood (K1); K7 needs pandas 2 and 3 environments, so describe it instead.
+- The scripts behind the speed and research numbers (`bench.py`, `py_vs_vec_fit.py`, `load_bench.py`,
+  `duckdb_convert.py`, `degeneracy_audit.py`, `map_em.py`, `squarem.py`, `squarem_tol.py`,
+  `check_smoothing.py`, `cappe_moulines.py`, `live_bench.py`), their result CSVs, `fetch_data.sh`, and
+  `rust/` (lean crate and REPORT only).
+- Left out: `PLANNING.md`, `TRACKING_ISSUE.md`, superseded scripts (`np_estep_old.py`, the ad-hoc online
+  variants), session notes.
 
 ### Tracking issue outline (draft text in `TRACKING_ISSUE.md`)
 1. One paragraph: what was researched, and that #64–#73 were the first results.
@@ -336,17 +388,31 @@ installed. Does not ask upstream to adopt a Rust toolchain. Proposed only after 
 23. **Fork-commit backlinks** (section 5) are visible to the maintainer before the tracking issue exists.
     Harmless, but the tracking issue should come soon so the links have context.
 
-### First batch (proposal)
-A1 (#65), A2 (harness), A4 (metadata/docs), B1 (C++ safety, results unchanged), and the release request.
-All results-unchanged except A1, which only removes a crash. A3 and A5 wait for the maintainer's answer in
-the tracking issue.
+### New points (v4, planning round 4)
+24. **Windows wheels need B1 first** (prerequisites above). The A5 PR can't be tested here (no MSVC), but
+    the wheel workflow runs on PRs, so CI tests it. Expect a few iterations.
+25. **Two copies of the Python code double the review load** and caused #72. Consolidating first would
+    make every later Python PR smaller, but it is the largest packaging change in the plan and comes
+    from an outside contributor. Ask before building.
+26. **The harness runs on Linux only.** Running it inside cibuildwheel (`CIBW_TEST_COMMAND`) would test
+    each compiled wheel on macOS, Windows, musl and aarch64. Its tolerances (`rtol` 1e-7 for outputs,
+    1e-9 for EM parity) are untested off Linux.
+27. **Hotspot order matters more than train order.** `E_step.cpp` and `data_helper.py` each have 6–7 PRs
+    queued. Merging them out of order means rebasing every time.
+28. **Repros persuade maintainers more than research scripts.** Section 1 of the issue should point to a
+    20-line repro per bug.
 
-## 9. Open questions (round 4)
-1. Train A's remainder: post as a follow-up comment in #65 (draft in `TRACKING_ISSUE.md`), or fold it
-   into the new tracking issue?
-2. #50 (Roster with multigs) and #45 (0.5 fallbacks): add to the plan, or leave out of scope?
-3. Evidence: link the tracking issue to this fork branch's `experiments/`, or summarize inline only?
-4. Next step: prepare A1 and A2 as fork branches ready for PRs, or keep planning (E1 earlier, issue text)?
+### First batch (proposal)
+A1 (#65 item 2), A2 (harness), A4 (metadata/docs), B1 (C++ safety, results unchanged), and the release
+request after A1 + A2. All results-unchanged except A1, which only removes a crash. A5 (Windows) follows
+B1. A3 waits for the maintainer's answer in the tracking issue.
+
+## 9. Open questions (round 5)
+1. Two copies of the Python code: propose one tree before the Python fixes, keep two, or only mention it
+   in the tracking issue?
+2. Evidence branch name (for example `evidence/bkt-research`), and is the trimmed set above right?
+3. Run the harness on every wheel platform (A2 follow-up) now, later, or not at all?
+4. `data_helper.py` order: vectorized `convert_data` (C3) first and fixes on top, or the small fixes first?
 
 ## 10. Coverage check: every experiment mapped to the plan
 
