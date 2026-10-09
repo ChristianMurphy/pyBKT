@@ -19,20 +19,25 @@ def estep(data, starts, lengths, prior, learn, forget, guess, slip):
         e = Bx[c]
         a = (np.array([1 - prior, prior]) * e) if t == 0 else (alpha[t - 1, :n] @ A) * e
         s = a.sum(1); cs[t, :n] = s; alpha[t, :n] = a / s[:, None]
+    # Backward pass in posterior form (see bkt_np.fb_counts): gamma stays <= 1, no overflow.
     trans = np.zeros((2, 2)); emit = np.zeros((3, 2))
-    gamma = alpha[Tmax - 1].copy()  # gamma at each student's last step, filled as we go backward
-    beta = np.ones((S, 2))
+    gamma = np.empty((S, 2))                     # gamma of each student at its current step
     for t in range(Tmax - 1, -1, -1):
         n = n_active[t]
-        # students whose last step is t start their backward pass here (beta = 1)
-        g = alpha[t, :n] * beta[:n]; g /= g.sum(1, keepdims=True)
-        np.add.at(emit, codes[t, :n], g)
-        if t > 0:
-            bE = beta[:n] * Bx[codes[t, :n]]
-            xi = alpha[t - 1, :n, :, None] * A[None] * bE[:, None, :] / cs[t, :n, None, None]
-            trans += xi.sum(0)
-            beta[:n] = (bE @ A.T) / cs[t, :n, None]
+        ending = Ls[:n] == t + 1                 # students whose last step is t start here
+        if t + 1 < Tmax:
+            cont = ~ending
+            pred = alpha[t, :n] @ A
+            with np.errstate(invalid="ignore", divide="ignore"):
+                xi = alpha[t, :n, :, None] * A[None] * (gamma[:n] / pred)[:, None, :]
+            xi = np.nan_to_num(xi, nan=0.0)
+            trans += xi[cont].sum(0)
+            g = np.where(cont[:, None], xi.sum(2), alpha[t, :n])
         else:
+            g = alpha[t, :n].copy()
+        gamma[:n] = g
+        np.add.at(emit, codes[t, :n], g)
+        if t == 0:
             init = g.sum(0)
     ll = np.log(cs[np.arange(Tmax)[:, None] < 0] if False else 1).sum()
     ll = sum(np.log(cs[t, :n_active[t]]).sum() for t in range(Tmax))

@@ -173,6 +173,61 @@ breakdown is in `results/compare_online_warm.csv`.
 - Update mastery estimates immediately and global parameters rarely. M-steps
   every 100 or every 1,000 events made no measurable difference.
 
+### Event-level online EM on Cappé (2011)'s step sizes (`cappe2011_events.py`)
+
+Cappé (2011, §3.1): γ_n = 1/n "should definitely be avoided for HMMs"; use n^(−α) with α in (0.5, 0.8),
+plus averaging. Our undiscounted event-level stream *is* γ = 1/n, which explains its 0.030 error.
+Re-run with one global step size applied to each event's change in smoothed statistics (our
+multi-student adaptation; Cappé treats one long sequence). Same synthetic stream, 3 starts, maximum
+absolute parameter error:
+
+| Schedule | No projection | Totals kept positive (C&M 2009 §3.1) |
+| --- | --- | --- |
+| γ = n^(−0.8) + PR averaging | 0.0021 | 0.0021 |
+| γ = 3e-5 constant (M&D tracking) | 0.0043 | 0.0043 |
+| γ = n^(−0.8), last value | 0.0043 | 0.0043 |
+| γ = 1/n (the earlier stream) | 0.024 | 0.018 |
+| γ = n^(−0.7) + PR averaging | 0.024 | 0.024 |
+| γ = n^(−0.6), n^(−0.7), 1e-4 constant | diverged (up to 1e10) | still unstable (0.07–0.28) |
+
+Only the slowest recommended schedule (α = 0.8) is stable in our adaptation. Per-event changes include
+revisions to a student's earlier answers, so they are noisy and can be negative. Keeping the totals
+positive isn't enough; a proper fix needs Cappé's per-sequence step inside ρ, or a projection on
+parameters. **Student-level C&M (0.0016) remains the better-grounded and more accurate choice;**
+event-level updates are experimental.
+
+### Beck & Chang (2007) priors vs maximum likelihood (`map_em.py`, `degeneracy_audit.py`)
+
+Audit of pyBKT's own EM (C++, its own initialization, 5 restarts, 110 ASSISTments skills): **9.1%** of
+the fits pyBKT keeps are implausible (guess or slip > 0.5), **11.8%** are stuck at 0/1, 0.9% are
+degenerate (guess + slip ≥ 1), and in 74 of 110 skills the restarts disagree by more than 0.1. This
+happens although pyBKT's starts already satisfy Pardos & Heffernan (2010)'s guess + slip < 1 (guess ≤ 0.4,
+slip ≤ 0.3). The largest skills show Beck & Chang's "never learns" pattern ("Percent Of": learn 0.013,
+guess 0.54, slip 0.001).
+
+MAP-EM with Beta pseudo-counts added to the expected counts (Beck & Chang: "seed the CPT, then add
+observations"). Prior means: prior 0.5, learn 0.2, guess 0.2, slip 0.1. 48 skills with at least 2,000
+answers, 3 random starts, 80/20 split by student:
+
+| | Held-out ll vs MLE (mean / worst / best) | Δ AUC | Implausible | Stuck at 0/1 | Learn < 0.02 | Restarts disagree | EM iterations |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| MLE | 0 | 0 | 6.9% | 15.3% | 30.6% | 10.4% | 44 |
+| MAP weak (10 pseudo-counts) | +0.0012 / −0.0045 / +0.049 | +0.0015 | 6.9% | 2.8% | 22.2% | 8.3% | 60 |
+| MAP strong (50 pseudo-counts) | +0.0023 / −0.0085 / +0.113 | +0.0035 | 4.9% | **0%** | 11.1% | 6.3% | 62 |
+
+This reproduces Beck & Chang's finding on math data: priors give slightly *better* held-out prediction
+on average (their AUC was 0.620 vs 0.614) and far fewer implausible fits, at about 40% more iterations.
+The prior strengths here are illustrative; Beck & Chang's own values were tuned for a reading tutor.
+
+**Bug found and fixed in this directory's reference code:** the first priors run produced NaN on
+"Multiplication and Division Integers". My NumPy E-steps (`bkt_np.py`, `np_estep.py`) used the textbook
+scaled backward pass (Rabiner β). With forget = 0, "known" is absorbing, and β(unknown) passed 1e300 at
+step 859 of a 3,585-answer student, giving inf × 0 = NaN. pyBKT's C++ avoids this by working in
+posterior probabilities (xi from α and the next γ, with NaN replaced by 0). Both NumPy E-steps now use
+that form: within 5.1e-15 of C++ on the failing case, and still within 2.7e-13 on both fixtures. The two
+forms are mathematically identical, so experiments that finished without NaN are unaffected. The
+stable form is somewhat slower (937 vs 676 ns/answer on merged ASSISTments, at variable load).
+
 ## 3. EM acceleration: SQUAREM
 
 `squarem.py` implements SqS3 (Varadhan & Roland 2008) in logit space. It needs
@@ -182,6 +237,12 @@ on 15 skills × 3 starts at tolerance 1e-4:
 
 - total E-steps 1,149 → 778 (1.48×); median 1.27× per run (p10 0.6, p90 2.2)
 - never worse, once better, parameters match plain EM to about 2.5e-4 (median)
+
+Tolerance sweep (`squarem_tol.py`, 8 skills × 2 starts): total E-steps 403 → 291 (1.38×) at 1e-4,
+499 → 319 (1.56×) at 1e-6, and 595 → 357 (1.67×) at 1e-8. None of the 48 runs crossed from the plausible
+basin (guess + slip < 1) to the degenerate one, none ended at a worse likelihood, and one ended better.
+The SQUAREM vignette's 40x example needed 2,909 plain EM steps; BKT's EM needed at most 91 here, so
+there is little to accelerate.
 
 The gain is modest at pyBKT-like tolerances. It would be opt-in, because
 `em_parity` pins 20 plain iterations.

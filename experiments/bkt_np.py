@@ -74,17 +74,23 @@ def fb_counts(Y, lengths, p, per_student=False):
         v = valid[:, t]
         c[:, t] = np.where(v, ct, 1.0)
         alpha[:, t] = np.where(v[:, None], a / np.where(v, ct, 1.0)[:, None], alpha[:, t - 1])
-    beta = np.ones((n, L, 2))
+    # Backward pass in posterior form, as pyBKT's C++ E-step does: work with gamma (<= 1), not scaled beta.
+    # The textbook scaled beta overflows on long sequences when "known" is absorbing (forget = 0):
+    # beta(unknown) grew past 1e300 on a 3,585-answer ASSISTments student, giving inf * 0 = NaN.
+    #   xi_t(i, j) = alpha_t(i) A(i, j) gamma_{t+1}(j) / (alpha_t A)(j),   gamma_t(i) = sum_j xi_t(i, j)
     Sx = np.zeros((n, D))
-    for t in range(L - 1, 0, -1):
-        v = valid[:, t]
-        # xi[i, j] for transition t-1 -> t
-        bE = beta[:, t] * E[:, t]  # (n, 2)
-        xi = alpha[:, t - 1][:, :, None] * A[None] * bE[:, None, :] / c[:, t][:, None, None]
+    last = lengths - 1
+    gamma = np.empty((n, L, 2))
+    gamma[np.arange(n), last] = alpha[np.arange(n), last]
+    for t in range(L - 2, -1, -1):
+        v = t < last                                  # students whose sequence continues past t
+        pred = alpha[:, t] @ A                        # (alpha_t A)(j)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            xi = alpha[:, t][:, :, None] * A[None] * (gamma[:, t + 1] / pred)[:, None, :]
+        xi = np.nan_to_num(xi, nan=0.0)                # pyBKT: pair != pair -> 0
         Sx[:, 2:6] += np.where(v[:, None], xi.reshape(n, 4), 0)
-        beta[:, t - 1] = np.where(v[:, None], (A[None] @ bE[:, :, None])[:, :, 0] / c[:, t][:, None], 1.0)
-    gamma = alpha * beta
-    gamma /= gamma.sum(2, keepdims=True)
+        gamma[:, t] = np.where(v[:, None], xi.sum(2), gamma[:, t])
+    valid = np.arange(L)[None, :] <= last[:, None]
     Sx[:, 0:2] = gamma[:, 0]
     for o in (0, 1):
         m = (Y == o) & valid
