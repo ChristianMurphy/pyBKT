@@ -27,7 +27,7 @@ Each item is tagged by how it affects results, using the classes from README dis
 | K5 | Skill names with regex characters never matched in predict | silent 0.5 predictions (2,339 ASSISTments rows) | tiny |
 | K6 | Tied `order_id` ordered by unstable quicksort | 29.6% of ASSISTments rows in ambiguous order; results depend on input order | tiny |
 | K7 | multipair keys are numpy/pandas reprs | models fitted under pandas 2 fail under pandas 3 | small (key format change = compatibility question) |
-| K8 | NaN user ids dropped from lengths but kept in data | misaligned sequences | tiny |
+| K8 | Missing user ids: `groupby` drops them from `lengths`, the rows stay at the end of the data | fit ignores those rows silently; predict returns invalid values for them (1.12 and 0.0 in pure Python, 0.0 compiled); `nan_user_ids.py` (an earlier note said "misaligned sequences"; a test shows they aren't) | tiny |
 | K9 | C++ parallel reduction order nondeterministic | last-bit differences run to run | small |
 | K10 | `bigT` / indices are 32-bit | overflow past 2^31 answers per skill | small |
 | K11 | PyPI 1.4.3 wheel is pure Python (`py3-none-any`, no extension) | every pip user gets the ~75x slower path, with #72 | **fixed on master (#66, #69)**; needs a release |
@@ -92,6 +92,13 @@ Round 2:
 - **First train:** sync with upstream first; some issues are already logged and fixed (done in section 5).
 - **Explaining the work:** a five-line summary on every PR, README sections for user-visible changes, and
   notebooks or docs pages for the opt-in features.
+
+Round 3:
+- **Release ask:** after A1 (NumPy 2 fix) and A2 (harness) are merged.
+- **Windows wheels:** yes, in Train A (A5).
+- **Tracking issue:** drafted here (`TRACKING_ISSUE.md`) for the owner to review and post.
+- **Release path:** one sentence in the release ask ("tag it like 1.4.3, without a `v`"); propose the
+  cleanup (A3) in the tracking issue for later.
 
 ## 4. What a new user gets today (PyPI 1.4.3, checked 2026-10-09)
 
@@ -160,8 +167,22 @@ cleanly and the merged code reads per-class parameters (#71's loop-local `learn`
   likely to reject the second one, so one job fails. Pushing only a `v` tag ships an sdist with no wheels,
   because a release created with the workflow token does not trigger `release.yml`.
 
-**Not checked:** issue and PR discussions upstream. This session can read CAHLR's git history but not its
-issues, so comments on #55, #65 and others are unread. Check them before posting the tracking issue.
+**Upstream issues** (read 2026-10-09 from the public issue pages; the API isn't available for CAHLR here):
+
+| Issue | State | What it says | Effect on the plan |
+| --- | --- | --- | --- |
+| #65 "Publishing compiled wheels, and making scikit-learn optional" (owner's) | open | three problems: build isolation, **NumPy 2 fit fails at `EM_fit.py:43`**, scikit-learn on musllinux. zpardos (2026-10-09): "the three proposals sound good"; default `PYBKT_REQUIRE_CPP=0` and **document it in the README** | Train A continues this thread: A1 is its item 2; A4 adds the README note he asked for; the release ask goes here |
+| #55 incremental/online updates (2025-10) and #57 constant-time `update` API (2025-11) | open, no maintainer reply | both ask for a one-step mastery update with fitted parameters (`update_single_step(skill, prior, obs)`, `update_single(prior, is_correct, skill)`), not online parameter learning | E1 answers both; E4 (online parameters) is a different request nobody has made |
+| #45 multilearn: `crossvalidate` returns an AUC where fit + predict raise | open | collaborator (2023-11): crossvalidate makes "best effort" 0.5 predictions for unknown parameters; offered consistency or a warning | same family as K5's silent 0.5 predictions; a warning fits D1 |
+| #50 multigs model fails in `Roster` | open | `ValueError` broadcasting (186,) into (1,); a second report traces `process_data` using `True` instead of the class names | not in the research; candidate for Train B after a reproduction |
+| #54 `random.randint(0, 1e8)` | open | fixed by merged PRs #48 and #56 | housekeeping: can be closed |
+| #39 seeded C++ models not deterministic | closed (#41) | seeding fixed | K9 is a different, last-bit effect of the parallel reduction |
+| #37 "Latest pyBKT not built", #60 "New pip release for bugfix" | closed | earlier build and release requests | precedent: release asks get answered |
+| #53 `No module named 'pyBKT'` | open, no details | — | may be a failed build; wheels may help, unconfirmed |
+
+**Side effect found:** fork commits whose messages contain `#N` show up in the upstream issue's timeline
+(#65 shows this plan's commit). Earlier fork commits mention #72 too. From now on, fork commit messages
+say "upstream issue 65" without the `#`.
 
 ## 6. Adoption lens (from upstream history)
 
@@ -191,12 +212,12 @@ Done upstream: build requirement, `PYBKT_REQUIRE_CPP`, optional scikit-learn, Li
 
 | PR | Content | Class | Size | Notes |
 | --- | --- | --- | --- | --- |
-| A1 | #65: NumPy 2 fit (one line in each `EM_fit.py`) | fix | S | first; unblocks pure Python on NumPy 2 |
+| A1 | #65 item 2: NumPy 2 fit (one line in each `EM_fit.py`) | fix | S | first; unblocks pure Python on NumPy 2 |
 | A2 | Regression harness on top of A1: delete the three obsolete markers and `FAILS_ON_NUMPY2`; CI runs compiled on Python 3.10–3.14 and pure Python on NumPy 1 and 2 | infra | M (506 lines, 12 files) | all later result-checked PRs depend on it |
 | A3 | One release path: `release.yml` also runs on tag push, `publish.yml` retired; short "how to release" note | infra | S | the maintainer's process: ask in the tracking issue first |
-| A4 | Metadata and install docs: `python_requires >= 3.10` (matches the wheel matrix), classifiers 3.10–3.14, README "Installing" says wheels are compiled | infra | S | |
-| A5 | Windows wheels (MSVC, `/openmp`) | infra | M | open question 2 |
-| — | Release request, with notes on the result changes from #70 and #72 | — | — | open question 1 |
+| A4 | Metadata and install docs: `python_requires >= 3.10` (matches the wheel matrix), classifiers 3.10–3.14, README "Installing" says wheels are compiled and documents `PYBKT_REQUIRE_CPP` (asked for in #65) | infra | S | |
+| A5 | Windows wheels (MSVC, `/openmp`) | infra | M | decided: in Train A; can follow the release |
+| — | Release request in #65, after A1 + A2, with the tag note and the result changes from #70 and #72 | — | — | decided |
 
 ### Train B — "results are correct and reproducible"
 Result-changing fixes ([fix]) go into the tracking issue first; the maintainer decides each one.
@@ -206,7 +227,7 @@ Result-changing fixes ([fix]) go into the tracking issue first; the maintainer d
 | B1 | C++ safety from phase 1: heap scratch space instead of the stack array (crash at 200k answers), `delete[]`, leak, `parallel=False` no longer sticky | same | S |
 | B2 | Escape skill names in the skill regex (K5) | fix | S |
 | B3 | Stable order for tied `order_id` (K6) | fix | S |
-| B4 | Handle missing user ids consistently (K8) | fix | S |
+| B4 | Missing user ids (K8): drop them with a warning, or raise; never return values above 1 | fix | S |
 | B5 | Float log-likelihood from C++ (K1): stopping rule, best restart | fix | S |
 | B6 | Deterministic parallel reduction in C++ (K9) | same (last bits) | S |
 | B7 | multipair keys stable across pandas versions, still loading old keys (K7) | fix | M |
@@ -221,20 +242,20 @@ Result-changing fixes ([fix]) go into the tracking issue first; the maintainer d
 | C5 | Parallel policy (serial for small skills, parallel across skills), *after* a controlled measurement | up to 6x on many small skills, if confirmed | M |
 | C6 | Sparse multigs layout; 64-bit indices (K10) | 1.47 GB -> MBs; > 2^31 answers | M |
 | C7 | Read only the needed columns with narrow dtypes when given a file path (pandas only) | 61 s / 5.0 GB -> 33 s / 2.6 GB at 20M rows; no new dependency | S |
-| C8 | Prepared-data object: convert once, reuse across `fit`, `predict`, `crossvalidate` and restarts; stop mutating and re-sorting the caller's DataFrame | removes repeated conversion; the Rust work showed per-call copies cost ~40% of a fast E-step | M |
+| C8 | Prepared-data object: convert once, reuse across `fit`, `predict` and `evaluate` calls (restarts and `crossvalidate` folds already reuse one conversion); stop mutating and re-sorting the caller's DataFrame | removes repeated conversion; the Rust work showed per-call copies cost ~40% of a fast E-step | M |
 | C9 | All `num_fits` restarts in one pass over the data; skills in parallel; schedule threads by answers, not students | default `num_fits=5` is 4.3x the single-fit time today | M |
 
 ### Train D — "better parameters" (opt-in, research-backed; propose in the tracking issue first)
 | PR | Content | Research | Size |
 | --- | --- | --- | --- |
-| D1 | Fit diagnostics: implausible / boundary / restart disagreement warnings | Pardos & Heffernan 2010; Beck & Chang 2007 | S |
+| D1 | Fit diagnostics: implausible / boundary / restart disagreement warnings, and a warning when predictions fall back to 0.5 (#45) | Pardos & Heffernan 2010; Beck & Chang 2007 | S |
 | D2 | Beta priors (MAP-EM), `priors=` | Beck & Chang 2007 | M |
 | D3 | SQUAREM, `accelerate="squarem"` | Varadhan & Roland 2008 | M |
 
 ### Train E — "live tutors and large data" (opt-in)
 | PR | Content | Research | Size |
 | --- | --- | --- | --- |
-| E1 | Live mastery update API (issue #55), normalized update | forward filtering | S |
+| E1 | Live mastery update API (issues #55 and #57), normalized update | forward filtering | S |
 | E2 | Optional DuckDB loader (`pyBKT[duckdb]`) | — | M |
 | E3 | Compact store + exact out-of-core EM via forward smoothing | Cappé 2011 Prop. 1 | L |
 | E4 | Student-level online EM, experimental: warm-start from a batch fit, periodic batch refit as anchor, pseudo-counts; plus docs saying what today's `partial_fit` does (a warm-started refit on new data only) | Cappé & Moulines 2009; Neal & Hinton 1998 | M |
@@ -255,7 +276,7 @@ installed. Does not ask upstream to adopt a Rust toolchain. Proposed only after 
 | Numba / Cython pure-Python path | vectorized NumPy gets 54x with no new dependency | ROADMAP alternatives |
 | Polars as a required dependency | DuckDB/pyarrow optional is enough; pandas path improved instead | README §7 |
 
-### Tracking issue outline (to draft once open question 3 is answered)
+### Tracking issue outline (draft text in `TRACKING_ISSUE.md`)
 1. One paragraph: what was researched, and that #64–#73 were the first results.
 2. Train A: what's left before a release (A1–A5) and the release-path note.
 3. Result-changing fixes for the maintainer to decide (B2–B5, B7): one line each with the effect, the
@@ -304,16 +325,28 @@ installed. Does not ask upstream to adopt a Rust toolchain. Proposed only after 
     any newer ones) so it doesn't duplicate or contradict them.
 19. **IDs:** inventory bugs are now K1–K13, so "B3" always means a Train B PR.
 
+### New points after reading the issues (v3.1)
+20. **Train A already has a home.** #65 is the owner's issue and the maintainer approved its three
+    proposals. Posting Train A's remainder (A1, the release ask) as a follow-up there keeps one thread per
+    topic. The new tracking issue then covers only Trains B–E and R, which makes it shorter.
+21. **Live updates are the most-requested feature** (#55, #57, a year without a reply). E1 is small, needs
+    no new dependency, and is exact. It may deserve to move ahead of Train C.
+22. **The tracking issue can close loops:** #54 is already fixed; #45 and #53 get a pointer to the work
+    that addresses them. That's useful to the maintainer even if no opt-in feature is accepted.
+23. **Fork-commit backlinks** (section 5) are visible to the maintainer before the tracking issue exists.
+    Harmless, but the tracking issue should come soon so the links have context.
+
 ### First batch (proposal)
 A1 (#65), A2 (harness), A4 (metadata/docs), B1 (C++ safety, results unchanged), and the release request.
 All results-unchanged except A1, which only removes a crash. A3 and A5 wait for the maintainer's answer in
 the tracking issue.
 
-## 9. Open questions (round 3)
-1. When to ask for a release: right after A1, after A1 + A2, or after the first batch?
-2. Windows wheels (A5): in Train A, later, or not at all?
-3. The tracking issue: draft the full text here for you to post, or will you write it?
-4. Release path: send A3 as a PR, mention the tag format in the release request only, or ask in the issue?
+## 9. Open questions (round 4)
+1. Train A's remainder: post as a follow-up comment in #65 (draft in `TRACKING_ISSUE.md`), or fold it
+   into the new tracking issue?
+2. #50 (Roster with multigs) and #45 (0.5 fallbacks): add to the plan, or leave out of scope?
+3. Evidence: link the tracking issue to this fork branch's `experiments/`, or summarize inline only?
+4. Next step: prepare A1 and A2 as fork branches ready for PRs, or keep planning (E1 earlier, issue text)?
 
 ## 10. Coverage check: every experiment mapped to the plan
 
@@ -337,6 +370,7 @@ the tracking issue.
 | `conv_mem.py` | pandas 3 + pyarrow strings change memory, not a regression | docs note in C3 |
 | `e2e_pybkt.py`, `omp_overhead.py` | default parallel 6x slower than serial under load; 7.9 µs/call idle | C5 (after re-measurement) |
 | `live_bench.py` | O(1) live updates exact to 1.6e-9; naive formula unstable; regex and tie bugs | E1, B2, B3 |
+| `nan_user_ids.py` (planning round 4) | missing user ids: silent drop in fit, invalid predictions | B4 |
 | Rust `bkt_rs`, `bkt_lean`, `rayon_simd.py`, `lean_gap.py` | 2.2x serial, 10–35x SIMD+threads; copy-once matters; rayon optional | Track R; C8 (convert once) |
 | Dependency and safety audits (numpy, Arrow, Parquet, wgpu, rayon) | pyo3-only lean build; rayon acceptable | Track R |
 | GPU assessment | not worth it at typical sizes | Not planned |
