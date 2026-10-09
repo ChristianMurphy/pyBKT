@@ -23,6 +23,8 @@ Pardos (`zpardos`); Anirudhan Badrinath (`abadrinath947`) answered most issues f
    within float tolerance), `[fix]` (a bug fix that changes results), `[opt-in]` (new, optional),
    `[infra]` (tests, build, docs).
 4. **Result-changing fixes are the maintainer's call**, each through its own issue with a repro.
+   **At most three upstream PRs open at once**; result-changing fixes one at a time. Open the next when one
+   merges.
 5. **No new required dependencies.** Optional extras only (`pyBKT[duckdb]`); Rust only as a separate
    optional package unless the maintainer asks otherwise.
 6. **Rust code:** `#![forbid(unsafe_code)]` in our crates; avoid `unsafe`-heavy dependencies where
@@ -67,6 +69,22 @@ that fails to import with scikit-learn ≥ 1.8 and fails to fit on NumPy 2.
 | #54 (open) | `random.randint(0, 1e8)`; fixed by merged #48 and #56 | comment that it can be closed |
 | #37, #60 (closed) | "latest pyBKT not built", "new pip release" | precedent: release requests get answered |
 
+**Upstream side branches and forks** (all branches of CAHLR/pyBKT and of the 13 active forks were fetched
+on 2026-10-09 and compared with master):
+
+| Where | What | Effect on the plan |
+| --- | --- | --- |
+| upstream branch `noerr` (Anirudhan Badrinath, 2022-12-28, unmerged) | unseen multilearn/multigs classes fall back instead of raising; the multigs matrix is sized from the *fitted* classes; `evaluate` clips invalid predictions with a warning | the starting point for CV (#45, likely #47); note its multigs fallback maps unseen classes to index 1, a real template |
+| upstream branch `nopy` (2023-07-07, unmerged) | deletes the whole `source-py` tree and makes `setup.py` C++ only, the same day as the abandoned wheel workflow | the maintainers once went further than T1; the T1 proposal cites it and offers both directions |
+| forks germanprogrammersberlin, gengyabc, flixstn (2026-03 to 2026-09) | each fixed the NumPy 2 fit (`EM_fit.py:43`) independently; gengyabc and flixstn also guard divisions in the E-step | A1 credits them in the PR text |
+| fork huni1023 (2025-06) | "memory exhaustion in Windows": pool size cut to `cpu_count()/4` | more evidence against the process pool (C1) |
+| fork justinas-kazanavicius (2025-05, 11 commits) | pyproject build backend, Apple Silicon flags, show build errors | earlier attempt at what #66/#67/#69 now do |
+| forks taheralfayad, Wernerson | `random.randint(0, 1e8)` fixes | already fixed upstream (#48, #56) |
+| fork Clyde3231/noGuess_pyBKT | a BKT variant without the guess parameter | research fork; no plan change |
+
+pyBKT-examples has two issues, both closed, both about multiprocessing on Windows (2021, 2023): more
+evidence for C1.
+
 **Upstream git history that bears on the plan** (full history, 393 commits):
 
 | Commit | Date | What it tells us |
@@ -96,6 +114,10 @@ that fails to import with scikit-learn ≥ 1.8 and fails to fit on NumPy 2.
   opt-in features.
 - Evidence for upstream readers goes on a clean, neutrally named fork branch (default name
   `evidence/bkt-research`; confirm with the owner before creating it).
+- Round 7: the single-tree proposal **cites `nopy` and offers both directions** (one tree with a NumPy
+  fallback, or C++ only once Windows wheels exist); the class-value work **builds on `noerr`** (credit its
+  author, add repros and tests, fix its multigs fallback); the NumPy 2 PR **credits the three forks** that
+  fixed it first; **at most three upstream PRs open at once**.
 - Round 6: the **class-value cluster** (#29, #45, #47, #50, #52) goes in wave 2 after E1, reproduced first;
   the **OpenMP default for small calls** (B8) moves into wave 2 with the C++ fixes; the pure-Python
   **process pool** is fixed only by the vectorized E-step (C1), no separate pool PR; the Rust discussion
@@ -210,6 +232,8 @@ Each card says what to build and how to know it's done. Line numbers are on upst
   `source-cpp/pyBKT/fit/EM_fit.py:25` so both copies stay alike (there the value is a Python int, see B5).
 - Verify: pure Python on NumPy 2 fits (`PYTHONPATH=source-py python -c "…Model(seed=0).fit(data=df)…"`);
   the harness's 8 `FAILS_ON_NUMPY2` cases pass.
+- Credit: the PR text says the same fix appears in forks by germanprogrammersberlin
+  (`kompat-numpy2-sklearn16`), gengyabc and flixstn, with links. No co-author lines.
 - Risk: none known; results unchanged where the code ran before.
 
 **A2 · Regression harness** · `[infra]` · from `test/regression-harness` (`97a0eb1`), rebased on A1
@@ -263,6 +287,10 @@ comment. See `ISSUE_DRAFTS.md`.
   with the NumPy versions as the fallback; `pyBKT.version` still reports which is active; `setup.py`
   builds the extension when it can.
 - Do it before B2–B4 if accepted; otherwise B2–B4 edit both copies.
+- History: the upstream branch `nopy` (2023-07-07, unmerged) deleted `source-py` and made the package C++
+  only. The proposal cites it and offers both directions: (a) one tree with the NumPy E-step as fallback;
+  (b) C++ only, once Windows wheels exist. (b) leaves platforms without wheels and failed builds with
+  nothing, so (a) is the recommendation, but it's the maintainer's call.
 
 **Bug PRs, one at a time, each with its issue** (repros in this directory; each changes results):
 
@@ -311,9 +339,16 @@ carries the measurements
   traceback points at `Roster.process_data` passing `True` instead of class names); `evaluate` raises
   `IndexError` on sequence-level splits with multigs (#47); `crossvalidate` predicts 0.5 for unseen
   multilearn classes where `predict` raises (#45).
-- Step 1: reproduce each on public data (ASSISTments or the CT sample), one script per symptom, like the
-  other repros. Step 2: group by cause; one PR and one comment on the matching issue per cause.
-- None of this was in the research; no claim about causes yet.
+- Start from the maintainers' own unmerged branch `noerr` (2022-12-28): unseen classes fall back to a
+  default instead of raising (#45), the multigs matrix is sized from the fitted classes, and `evaluate`
+  clips invalid predictions with a warning. Rebase it, credit Anirudhan Badrinath, and fix its multigs
+  fallback (`gs_ref.get(x, 1)` maps an unseen template to index 1, which is a real template).
+- Likely cause of #47 (a hypothesis until reproduced): `data_temp` gets one row per template present in the
+  evaluated data, but the indices come from the fitted templates, so a test split missing a template
+  indexes past the end. `noerr` sizes it from `gs_ref`.
+- Step 1: reproduce each symptom on public data (ASSISTments or the CT sample), one script per symptom.
+  Step 2: group by cause; one PR and one comment on the matching issue per cause. The `Roster` cause
+  (#29, #50, #52) is separate from `noerr`'s changes.
 
 ### Wave 3 (cards are shorter; refresh numbers before posting)
 
@@ -321,7 +356,7 @@ carries the measurements
 | --- | --- | --- | --- | --- |
 | C2 | forward-only predict | `fda90e7` + `E_step.predict` from `34e3d21` | 1M rows 60 → 14 ms; multigs × 50 templates 3.27 → 0.12 s, half the peak memory | `[same]` |
 | C3 | vectorized `convert_data` | `37f57be`, re-applied after B2–B4/B3 | 5M rows/100 skills 31.6 → 2.0 s; multipair 100k 17.2 → 0.06 s | must keep the fixed behaviour; identical output across 46 input shapes |
-| C1 | vectorized pure-Python E-step | `np_estep.py` (posterior-form backward pass) | 20–24x faster than pyBKT's default (a process pool per E-step), 32–40x than serial; matches C++ to 3.4e-15; removes the process pool that broke on Windows (#11, #51) | decided: this is the only fix for the pool (about 25 ms per iteration; small skills 9x slower than serial); scaled-β form overflows on long sequences, use the posterior form |
+| C1 | vectorized pure-Python E-step | `np_estep.py` (posterior-form backward pass) | 20–24x faster than pyBKT's default (a process pool per E-step), 32–40x than serial; matches C++ to 3.4e-15; removes the process pool that broke on Windows (#11, #51) | decided: this is the only fix for the pool (about 25 ms per iteration; small skills 9x slower than serial; it broke on Windows in #11, #51, pyBKT-examples #1 and #2, and fork huni1023 shrank it for memory); scaled-β form overflows on long sequences, use the posterior form |
 | C4 | skip `alpha` during EM; int8 answers, int32 resources; alpha's labelled shape | ROADMAP | 16 B/answer per iteration not written | |
 | C7 | read only needed columns | `load_bench.py` | 20M rows 60.8 s / 5.0 GB → 33.0 s / 2.6 GB | keep every column the model type needs |
 | C8 | convert once (prepared data); stop sorting the caller's DataFrame in place | `lean_gap.py` | per-call copies cost ~40% of a fast E-step | `fit` reorders the caller's DataFrame today |
@@ -448,6 +483,7 @@ Every experiment, what it answered, and where it went. "Open" marks threads nobo
 | Phase 1 branch, `bench.py`, golden checks | Crash, leak, predict, convert | Fixed and faster, bit-identical | B1, C2, C3 |
 | Repros (`integer_loglike.py`, `regex_skill_names.py`, `nan_user_ids.py`, `tied_order_ids.py`) | Do the bugs reproduce on small data? | Yes, in seconds | B5, B2, B4, B3 |
 | `upstream_sync_check.sh` | Do the fork branches still fit upstream? | Clean merges; only obsolete markers fail | A2 |
+| Upstream side branches and 13 active forks (round 7) | Has anyone already done parts of this? | `noerr` (class values), `nopy` (drop pure Python), three NumPy 2 fixes, a Windows pool-size fix, an earlier build-backend attempt | CV, T1, A1, C1 |
 | Literature (`online_bkt_literature.md`, `deep_research_summary.md`, Khajah JEDM) | What does research support? | Online EM of global BKT parameters is new; KT² is per-student personalisation; gradient fitters suit extensions | E4 docs, not planned |
 
 **Other open threads:** K7's repro needs pandas 2 and 3 side by side; Hawkins et al. 2014 is unread;

@@ -6,6 +6,9 @@ when its wave starts (`HANDOFF.md` section 3). `<PR>` marks numbers to fill in.
 Layout, as decided: topic issues with no umbrella; existing threads reused (#65 install, #55/#57 live
 updates, #54 housekeeping); one issue per result-changing bug, each posted with its PR ready.
 
+@-mentions (fork owners credited in item 1) notify those people when posted; drop the `@` to credit
+without a notification.
+
 Numbers come from this directory (`README.md`, `rust/REPORT.md`, the repro scripts) and
 `benchmarks/ROADMAP.md` on the phase 1 branch. Re-check any number that a later PR changes.
 
@@ -18,7 +21,8 @@ Numbers come from this directory (`README.md`, `rust/REPORT.md`, the repro scrip
 > Thanks for merging #66 to #69, and the fixes for #70 and #72.
 >
 > Item 2 is still open: the pure-Python fit fails on NumPy 2 at `EM_fit.py:43`. `<PR>` fixes it with one
-> line in each `EM_fit.py`.
+> line in each `EM_fit.py`. The same fix appears in forks by @germanprogrammersberlin, @gengyabc and
+> @flixstn, so others have been hitting this too.
 >
 > `<PR>` adds a test suite and a Tests workflow: the compiled build on Python 3.10 to 3.14, and the
 > pure-Python build on NumPy 1 and 2. It compares fitted parameters and predictions with stored
@@ -128,9 +132,17 @@ Numbers come from this directory (`README.md`, `rust/REPORT.md`, the repro scrip
 > Two consequences: every Python fix has to be made twice and kept identical by hand, and the copies drift.
 > #72 was a drift of that kind: the pure-Python E-step skipped evidence the C++ one counted.
 >
-> Proposal: one `pyBKT/` tree. The compiled modules stay optional; when they're missing, pyBKT imports the
-> NumPy versions instead, and `pyBKT.version` still says which one is active. `setup.py` keeps building
-> the extension when it can. Results don't change; the test suite runs both paths.
+> I noticed the `nopy` branch (July 2023) went further and removed the pure-Python tree altogether. Two ways
+> forward, and I'm happy with either:
+>
+> - **(a) One tree with a NumPy fallback.** One `pyBKT/` tree. The compiled modules stay optional; when
+>   they're missing, pyBKT imports the NumPy versions instead, and `pyBKT.version` still says which one is
+>   active. `setup.py` keeps building the extension when it can. Results don't change; the test suite runs
+>   both paths. A vectorized NumPy E-step I'd send separately makes the fallback 20–24x faster than today's.
+> - **(b) C++ only, as in `nopy`**, once wheels cover Windows too. The smallest codebase, but users on a
+>   platform without a wheel, or whose build fails, would have nothing to fall back on.
+>
+> I'd lean towards (a) for that reason, but it's your call. Diagram for (a):
 >
 > ```mermaid
 > flowchart LR
@@ -147,7 +159,7 @@ Numbers come from this directory (`README.md`, `rust/REPORT.md`, the repro scrip
 > ```
 >
 > Several fixes I'd like to send next edit `data_helper.py` and `Model.py`, so doing this first would
-> halve those PRs. Would you accept a PR for it, or would you rather keep the two trees?
+> halve those PRs. Would you accept a PR for (a), prefer (b), or rather keep the two trees?
 
 ### 5. Comment on #54
 
@@ -335,7 +347,11 @@ longer versions.
 
 ### 11b. Class-value cluster (after reproducing; one comment per cause)
 
-Outline only, because nothing is reproduced yet. Five reports involve multigs/multilearn class values
+Outline only, because nothing is reproduced yet. Start from the maintainers' unmerged `noerr` branch
+(December 2022), which already lets unseen classes fall back instead of raising, sizes the multigs matrix
+from the fitted classes (the likely cause of #47), and clips invalid predictions in `evaluate` with a
+warning. The PR would rebase it with credit, add repros and tests, and fix one detail (an unseen multigs
+class maps to index 1, a real template). Five reports involve multigs/multilearn class values
 after `fit`: `Roster` from a multigs model (#29 closed, #50, #52; a traceback in #50 points at
 `Roster.process_data` passing `True` instead of class names), `evaluate` raising `IndexError` on
 sequence-level splits with multigs (#47), and `crossvalidate` predicting 0.5 where `predict` raises for

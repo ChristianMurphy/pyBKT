@@ -125,6 +125,14 @@ Round 5 (after reading all 55 upstream issues and the full git history):
 - **Rust:** a discussion issue now, framed as "SIMD and multithreading help, but they are riskier to build
   in C and C++"; build nothing upstream until the maintainer replies.
 
+Round 7 (after fetching upstream's side branches and the 13 active forks):
+- **Single source tree:** cite the unmerged `nopy` branch (2023, C++ only) and offer both directions; (a),
+  one tree with a NumPy fallback, recommended.
+- **Class-value cluster:** build on the unmerged `noerr` branch (2022) with credit; fix its multigs
+  fallback.
+- **NumPy 2 PR:** credit the three forks that fixed it first, in the PR text.
+- **WIP limit:** at most three upstream PRs open at once; result-changing fixes one at a time.
+
 Round 6 (after a controlled contention study and the rest of the issue tracker):
 - **Class-value cluster** (#29, #45, #47, #50, #52): wave 2, after live updates; reproduce first.
 - **OpenMP default for small calls** (B8, was C5): wave 2 with the C++ fixes. Measured: ~8 ms per call
@@ -462,6 +470,7 @@ proposal.
 | `rust/contention.sh`, `rust/contention_small.py` (round 6) | rayon work stealing avoids the stall on small calls; per-call scoped threads don't; big calls degrade proportionally everywhere | R design (`bkt_lean` + rayon) |
 | `py_vs_vec_fit.py parallel` (round 6) | vectorized E-step is 20–24x faster than pyBKT's default process pool, 32–40x than serial; the pool costs ~25 ms per iteration | C1 |
 | Remaining upstream issues (round 6) | class-value cluster #29/#45/#47/#50/#52; process pool on Windows #11/#51/#42 | CV, C1 |
+| Upstream side branches and forks (round 7) | `noerr` (class values, 2022), `nopy` (drop pure Python, 2023), three independent NumPy 2 fixes, a Windows pool-size fix, an earlier build-backend attempt; pyBKT-examples' two issues are Windows multiprocessing | CV, T1, A1, C1 |
 | Rust `bkt_rs`, `bkt_lean`, `rayon_simd.py`, `lean_gap.py` | 2.2x serial, 10–35x SIMD+threads; copy-once matters; rayon optional | Track R; C8 (convert once) |
 | Dependency and safety audits (numpy, Arrow, Parquet, wgpu, rayon) | pyo3-only lean build; rayon acceptable | Track R |
 | GPU assessment | not worth it at typical sizes | Not planned |
