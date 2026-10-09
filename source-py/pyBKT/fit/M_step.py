@@ -1,6 +1,25 @@
 import numpy as np
 
-def run(model, trans_softcounts, emission_softcounts, init_softcounts, fixed = {}):
+def run(model, trans_softcounts, emission_softcounts, init_softcounts, fixed = {}, priors = None):
+
+    # Beta(a, b) priors add a pseudo-counts to the "yes" event and b to the "no"
+    # event, so each parameter becomes (count_yes + a) / (count_yes + count_no + a + b).
+    if priors is not None:
+        if 'prior' in priors:
+            init_softcounts[1] += priors['prior'][0]
+            init_softcounts[0] += priors['prior'][1]
+        if 'learns' in priors:
+            trans_softcounts[:, 1, 0] += priors['learns'][0]
+            trans_softcounts[:, 0, 0] += priors['learns'][1]
+        if 'forgets' in priors:
+            trans_softcounts[:, 0, 1] += priors['forgets'][0]
+            trans_softcounts[:, 1, 1] += priors['forgets'][1]
+        if 'guesses' in priors:
+            emission_softcounts[:, 0, 1] += priors['guesses'][0]
+            emission_softcounts[:, 0, 0] += priors['guesses'][1]
+        if 'slips' in priors:
+            emission_softcounts[:, 1, 0] += priors['slips'][0]
+            emission_softcounts[:, 1, 1] += priors['slips'][1]
 
     z = np.sum(trans_softcounts, axis=1) == 0
     for i in range(len(z)):

@@ -23,7 +23,7 @@ class Model:
     MODELS_BKT = ['multilearn', 'multiprior', 'multipair', 'multigs']
     MODEL_ARGS = ['parallel', 'num_fits', 'seed', 'defaults'] + MODELS_BKT
     FIT_ARGS = ['skills', 'num_fits', 'defaults', 'fixed',
-                            'parallel', 'forgets', 'preload'] + MODELS_BKT
+                            'parallel', 'forgets', 'preload', 'priors'] + MODELS_BKT
     CV_ARGS = FIT_ARGS + ['folds', 'seed']
     DEFAULTS = {'num_fits': 5,
                 'defaults': None,
@@ -33,6 +33,7 @@ class Model:
                 'folds': 5,
                 'forgets': False,
                 'fixed': None,
+                'priors': None,
                 'model_type': [False] * len(MODELS_BKT)}
     DEFAULTS_BKT = {'order_id': 'order_id',
                     'skill_name': 'skill_name',
@@ -68,6 +69,8 @@ class Model:
         Fits a BKT model given model and data information. Takes arguments skills,
         number of initialization fits, default column names (i.e. correct, skill_name),
         parallelization, and model types. Resets model state if uninitialized.
+        priors maps parameter names to Beta (a, b) pseudo-counts, for example
+        priors = {'guesses': (2, 8), 'slips': (1, 9)}; the default None fits by maximum likelihood.
 
         >>> model = Model(seed = 42)
         >>> model.fit(data_path = 'as.csv', forgets = True, skills = 'Box and Whisker')
@@ -99,7 +102,7 @@ class Model:
         self._check_data(data_path, data)
         self._check_args(Model.FIT_ARGS, kwargs)
         self._update_param(['skills', 'num_fits', 'defaults', 'fixed',
-                            'parallel', 'forgets'], kwargs)
+                            'parallel', 'forgets', 'priors'], kwargs)
         if self.fit_model is None or self.fit_model == {}:
             self.fit_model = {}
         if self.fit_model == {} or (self.manual_param_init and self.fit_model):
@@ -237,7 +240,7 @@ class Model:
 
         self._check_args(Model.CV_ARGS, kwargs)
         self._update_param(['skills', 'num_fits', 'defaults', 
-                            'parallel', 'forgets', 'seed', 'folds'], kwargs)
+                            'parallel', 'forgets', 'seed', 'folds', 'priors'], kwargs)
         self._update_param('model_type', self._update_defaults(kwargs))
         metric_vals = {}
         if not self.manual_param_init:
@@ -398,6 +401,7 @@ class Model:
         self._check_manual_param_init(num_learns, num_gs, skill)
         if hasattr(self, "fixed"):
             self._check_fixed(self)
+        self._check_priors()
         num_fit_initializations = self.num_fits
         best_likelihood = float("-inf")
         best_model = None
@@ -421,7 +425,7 @@ class Model:
                     if not isinstance(self.fixed[skill][var], bool):
                         optional_args['fixed'][var] = self.fixed[skill][var]
             if not preload:
-                fitmodel, log_likelihoods = EM_fit.EM_fit(fitmodel, data, parallel = self.parallel, **optional_args)
+                fitmodel, log_likelihoods = EM_fit.EM_fit(fitmodel, data, parallel = self.parallel, priors = self.priors, **optional_args)
                 if log_likelihoods[-1] > best_likelihood:
                     best_likelihood = log_likelihoods[-1]
                     best_model = fitmodel
@@ -483,6 +487,15 @@ class Model:
         else:
             raise ValueError("fixed parameter incorrectly specified")
 
+
+    def _check_priors(self):
+        """ Checks the priors parameter. """
+        if self.priors is None:
+            return
+        if not isinstance(self.priors, dict) or not set(self.priors) <= set(Model.INITIALIZABLE_PARAMS) or \
+                not all(np.shape(ab) == (2,) and np.all(np.asarray(ab) >= 0) for ab in self.priors.values()):
+            raise ValueError("priors must map parameter names in " + ", ".join(Model.INITIALIZABLE_PARAMS) +
+                             " to (a, b) pseudo-counts of at least 0")
 
     def _update_param(self, params, args, keep = False):
         """ Updates parameters given kwargs. """
