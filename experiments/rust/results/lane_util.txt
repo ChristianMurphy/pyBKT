@@ -1,0 +1,8 @@
+as_all S 4217 len min/median/mean/p99/max 1 23.0 106.5 1122.4000000000015 6154 top1% students hold 17.1 % of attempts
+  L=2 util sorted=0.9855 unsorted=0.7601  (chunk 65536) | sorted, one chunk=0.9948
+  L=4 util sorted=0.9357 unsorted=0.5824  (chunk 65536) | sorted, one chunk=0.9805
+  L=8 util sorted=0.8416 unsorted=0.4604  (chunk 65536) | sorted, one chunk=0.9433
+synth5m S 250000 len min/median/mean/p99/max 20 20.0 20.0 20.0 20 top1% students hold 1.0 % of attempts
+  L=2 util sorted=0.9997 unsorted=0.9997  (chunk 65536) | sorted, one chunk=1.0000
+  L=4 util sorted=0.9991 unsorted=0.9991  (chunk 65536) | sorted, one chunk=1.0000
+  L=8 util sorted=0.9991 unsorted=0.9991  (chunk 65536) | sorted, one chunk=1.0000

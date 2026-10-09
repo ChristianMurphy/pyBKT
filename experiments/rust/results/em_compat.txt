@@ -1,0 +1,9 @@
+prior    bit-identical=True maxabs=0.00e+00
+learns   bit-identical=True maxabs=0.00e+00
+forgets  bit-identical=True maxabs=0.00e+00
+guesses  bit-identical=True maxabs=0.00e+00
+slips    bit-identical=True maxabs=0.00e+00
+As       bit-identical=True maxabs=0.00e+00
+emissions bit-identical=True maxabs=0.00e+00
+pi_0     bit-identical=True maxabs=0.00e+00
+loglik C++ (int-truncated) last 3: [-209928. -209926. -209924.]  rust (float): [-209928.70310849 -209926.35016385 -209924.62481602]

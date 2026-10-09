@@ -1,0 +1,4 @@
+as_all: fsum=-251007.4258211593
+  serial(C++ order) err=-3.810e-08  chunked err=-7.538e-09  lanes err=-4.075e-10
+synth5m: fsum=-3750860.040946558
+  serial(C++ order) err=-2.217e-05  chunked err=+1.648e-07  lanes err=-1.863e-09

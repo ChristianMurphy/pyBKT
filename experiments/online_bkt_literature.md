@@ -27,6 +27,12 @@ The session's egress policy **blocked** arxiv.org (and its mirrors ar5iv, export
     - This is Neal & Hinton (1998)-style *incremental EM*: refresh one unit's sufficient statistics, then M-step on the pooled total. It is not stochastic-approximation online EM.
     - It has **no discounting, no step size and no pseudo-count prior**.
     - Note that `KT.py` reloads the burn-in parameter graph **for each test student** ("Reset parameter graph for each student"). In the evaluation loop, parameter updates therefore do not carry over from one student to the next. The online adaptation is per-student-trajectory, starting from a shared batch anchor.
+- **Update after reading the full text (arXiv v1, uploaded by the owner) [V-paper]:**
+  - **The model has no learning over time.** The hidden variables K_ci (mastery of each concept) sit on a tree of concepts. The "transitions" γ_c are parent-to-child entailment: mastering a parent implies mastering its children (eq. 8). They are not transitions across time steps. Emission (eq. 10): P(correct | mastered) = φ_n, which takes one of r_easy, r_med or r_hard according to the item's difficulty bin, and P(correct | not mastered) = ε (a guess).
+  - **Section 2.6 "Communal Burn-In":** the first answers of every student (10 per student in the experiments) are pooled into Q_init, and EM runs to convergence to give θ_init.
+  - **"Personalized Update":** each student i gets their **own** θ_i, estimated on Q_init ∪ Q_i, with **one EM iteration** per new answer.
+  - So KT² is *per-student personalisation from a shared batch anchor*. It is **not** online learning of shared global parameters.
+  - Evaluation: 100 students per module, 3 modules each of XES3G5M and MOOCRadar. Average AUC is 0.733 and 0.776, ahead of AKT, SAINT, qDKT and their "-Online" retrained variants, and of Qwen-2.5-7B and Llama-3.2-3B prompting (Table 2).
 - **Evaluation:** **[V-index/V-code]** on the XES3G5M and MOOCRadar datasets, with simulated classroom subsets. The abstract says KT² "consistently outperforms strong baselines in realistic online, low-resource settings." I could not read the metric tables (arXiv was blocked).
 - **Relation to the proposed design:**
   - KT² shares the *batch anchor, then incremental E/M* structure.
@@ -180,5 +186,7 @@ These are already known to the reader and are listed only to show which general 
 4. No published treatment of pseudo-count strength as an online regulariser for BKT (Beck & Chang's Dirichlet priors are batch only).
 5. No documentation of how production BKT systems (MATHia, ASSISTments) refresh parameters. **[UNVERIFIED]**
 6. Streaming versions of the cheap estimators (spectral/moment, empirical probabilities, grid-search loss caches) look possible because their statistics are additive, but are unpublished.
+
+**Full texts read afterwards ([V-paper]),** uploaded by the owner: Cappé & Moulines 2009; Cappé 2011; Mongillo & Denève 2008; Beck & Chang 2007; Pardos & Heffernan 2010; the SQUAREM R vignette (Varadhan); KT² v1; and Khajah's JEDM paper (text). How each maps onto the code is in README.md sections 2–3.
 
 **Caveat on coverage:** egress restrictions blocked arXiv and EDM/JEDM full texts, so everything tagged [V-index] rests on abstracts and listings. A full-text check of KT² (arXiv:2506.09393), Hawkins et al. 2014 and Pardos & Heffernan 2010 is the most valuable follow-up.

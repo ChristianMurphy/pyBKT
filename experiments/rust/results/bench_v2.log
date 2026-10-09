@@ -1,0 +1,444 @@
+0 as_all cpp_serial default  48.68 ns/att
+0 as_all cpp_par default  28.72 ns/att
+0 as_all cpp_predict_serial default  42.31 ns/att
+0 as_all cpp_predict_par default  25.14 ns/att
+0 as_all rs_a_serial default  23.52 ns/att
+0 as_all rs_b_t1 default  22.53 ns/att
+0 as_all rs_b_t2 default  12.89 ns/att
+0 as_all rs_b_t4 default  7.70 ns/att
+0 as_all rs_c_noalpha_serial default  21.38 ns/att
+0 as_all rs_c_noalpha_t4 default  10.34 ns/att
+0 as_all rs_c_predict_serial default  10.13 ns/att
+0 as_all rs_c_predict_t4 default  8.75 ns/att
+0 as_all rs_d_i8u16_serial default  22.10 ns/att
+0 as_all rs_d_i8u16_noalpha_t4 default  6.46 ns/att
+0 as_all rs_a_serial native  21.35 ns/att
+0 as_all rs_b_t1 native  21.55 ns/att
+0 as_all rs_b_t2 native  12.57 ns/att
+0 as_all rs_b_t4 native  7.28 ns/att
+0 as_all rs_c_noalpha_serial native  20.74 ns/att
+0 as_all rs_c_noalpha_t4 native  9.89 ns/att
+0 as_all rs_c_predict_serial native  10.76 ns/att
+0 as_all rs_c_predict_t4 native  8.63 ns/att
+0 as_all rs_d_i8u16_serial native  21.20 ns/att
+0 as_all rs_d_i8u16_noalpha_t4 native  7.30 ns/att
+0 as_all rs_a_serial v1_unsafe_default  21.70 ns/att
+0 as_all rs_b_t1 v1_unsafe_default  22.05 ns/att
+0 as_all rs_b_t2 v1_unsafe_default  13.80 ns/att
+0 as_all rs_b_t4 v1_unsafe_default  7.61 ns/att
+0 as_all rs_c_noalpha_serial v1_unsafe_default  20.95 ns/att
+0 as_all rs_c_noalpha_t4 v1_unsafe_default  6.93 ns/att
+0 as_all rs_c_predict_serial v1_unsafe_default  10.12 ns/att
+0 as_all rs_c_predict_t4 v1_unsafe_default  10.04 ns/att
+0 as_all rs_d_i8u16_serial v1_unsafe_default  21.61 ns/att
+0 as_all rs_d_i8u16_noalpha_t4 v1_unsafe_default  6.47 ns/att
+0 as_all rs_e_fearless_L2_serial default  10.00 ns/att
+0 as_all rs_e_fearless_L2_t4 default  8.53 ns/att
+0 as_all rs_e_fearless_L4_serial default  6.26 ns/att
+0 as_all rs_e_fearless_L4_t4 default  3.48 ns/att
+0 as_all rs_e_fearless_L8_serial default  6.33 ns/att
+0 as_all rs_e_fearless_L8_t4 default  3.33 ns/att
+0 as_all rs_e_autovec_L2_serial default  13.57 ns/att
+0 as_all rs_e_autovec_L2_t4 default  4.64 ns/att
+0 as_all rs_e_autovec_L4_serial default  12.84 ns/att
+0 as_all rs_e_autovec_L4_t4 default  8.61 ns/att
+0 as_all rs_e_autovec_L8_serial default  13.76 ns/att
+0 as_all rs_e_autovec_L8_t4 default  6.52 ns/att
+0 as_all rs_e_autovecdispatch_L2_serial default  12.29 ns/att
+0 as_all rs_e_autovecdispatch_L2_t4 default  5.98 ns/att
+0 as_all rs_e_autovecdispatch_L4_serial default  9.08 ns/att
+0 as_all rs_e_autovecdispatch_L4_t4 default  4.84 ns/att
+0 as_all rs_e_autovecdispatch_L8_serial default  13.09 ns/att
+0 as_all rs_e_autovecdispatch_L8_t4 default  4.71 ns/att
+0 as_all rs_e_fearless_L4_t4_alpha default  3.72 ns/att
+0 as_all rs_e_fearless_L4_serial native  6.21 ns/att
+0 as_all rs_e_fearless_L4_t4 native  6.35 ns/att
+0 as_all rs_e_fearless_L8_serial native  9.76 ns/att
+0 as_all rs_e_fearless_L8_t4 native  3.45 ns/att
+0 as_all rs_e_autovec_L4_serial native  10.85 ns/att
+0 as_all rs_e_autovec_L4_t4 native  7.03 ns/att
+0 as_all rs_e_autovec_L8_serial native  13.66 ns/att
+0 as_all rs_e_autovec_L8_t4 native  7.63 ns/att
+0 as_all rs_e_v1mv_L4_serial v1_unsafe_default  8.50 ns/att
+0 as_all rs_e_v1mv_L4_t4 v1_unsafe_default  5.74 ns/att
+0 as_all rs_e_v1mv_L8_serial v1_unsafe_default  11.73 ns/att
+0 as_all rs_e_v1mv_L8_t4 v1_unsafe_default  7.54 ns/att
+0 as_all rs_e_fearless_L2_serial default sse2 10.76 ns/att
+0 as_all rs_e_fearless_L4_serial default sse2 8.23 ns/att
+0 as_all rs_e_fearless_L8_serial default sse2 9.36 ns/att
+0 as_all rs_e_fearless_L2_serial default sse4_2 11.71 ns/att
+0 as_all rs_e_fearless_L4_serial default sse4_2 8.85 ns/att
+0 as_all rs_e_fearless_L8_serial default sse4_2 10.19 ns/att
+0 as_all rs_e_fearless_L2_serial default avx2 12.24 ns/att
+0 as_all rs_e_fearless_L4_serial default avx2 7.10 ns/att
+0 as_all rs_e_fearless_L8_serial default avx2 6.81 ns/att
+0 synth5m cpp_serial default  54.15 ns/att
+0 synth5m cpp_par default  14.00 ns/att
+0 synth5m cpp_predict_serial default  47.41 ns/att
+0 synth5m cpp_predict_par default  13.62 ns/att
+0 synth5m rs_a_serial default  21.48 ns/att
+0 synth5m rs_b_t1 default  21.94 ns/att
+0 synth5m rs_b_t2 default  11.31 ns/att
+0 synth5m rs_b_t4 default  5.70 ns/att
+0 synth5m rs_c_noalpha_serial default  19.48 ns/att
+0 synth5m rs_c_noalpha_t4 default  5.47 ns/att
+0 synth5m rs_c_predict_serial default  9.17 ns/att
+0 synth5m rs_c_predict_t4 default  2.53 ns/att
+0 synth5m rs_d_i8u16_serial default  22.14 ns/att
+0 synth5m rs_d_i8u16_noalpha_t4 default  5.11 ns/att
+0 synth5m rs_a_serial native  21.17 ns/att
+0 synth5m rs_b_t1 native  21.61 ns/att
+0 synth5m rs_b_t2 native  10.94 ns/att
+0 synth5m rs_b_t4 native  5.55 ns/att
+0 synth5m rs_c_noalpha_serial native  19.15 ns/att
+0 synth5m rs_c_noalpha_t4 native  5.06 ns/att
+0 synth5m rs_c_predict_serial native  9.45 ns/att
+0 synth5m rs_c_predict_t4 native  2.47 ns/att
+0 synth5m rs_d_i8u16_serial native  21.26 ns/att
+0 synth5m rs_d_i8u16_noalpha_t4 native  4.96 ns/att
+0 synth5m rs_a_serial v1_unsafe_default  21.19 ns/att
+0 synth5m rs_b_t1 v1_unsafe_default  23.04 ns/att
+0 synth5m rs_b_t2 v1_unsafe_default  12.06 ns/att
+0 synth5m rs_b_t4 v1_unsafe_default  5.49 ns/att
+0 synth5m rs_c_noalpha_serial v1_unsafe_default  19.22 ns/att
+0 synth5m rs_c_noalpha_t4 v1_unsafe_default  4.91 ns/att
+0 synth5m rs_c_predict_serial v1_unsafe_default  8.81 ns/att
+0 synth5m rs_c_predict_t4 v1_unsafe_default  2.67 ns/att
+0 synth5m rs_d_i8u16_serial v1_unsafe_default  20.94 ns/att
+0 synth5m rs_d_i8u16_noalpha_t4 v1_unsafe_default  5.06 ns/att
+0 synth5m rs_e_fearless_L2_serial default  10.20 ns/att
+0 synth5m rs_e_fearless_L2_t4 default  2.81 ns/att
+0 synth5m rs_e_fearless_L4_serial default  6.14 ns/att
+0 synth5m rs_e_fearless_L4_t4 default  1.69 ns/att
+0 synth5m rs_e_fearless_L8_serial default  5.19 ns/att
+0 synth5m rs_e_fearless_L8_t4 default  1.45 ns/att
+0 synth5m rs_e_autovec_L2_serial default  13.92 ns/att
+0 synth5m rs_e_autovec_L2_t4 default  3.56 ns/att
+0 synth5m rs_e_autovec_L4_serial default  12.83 ns/att
+0 synth5m rs_e_autovec_L4_t4 default  3.26 ns/att
+0 synth5m rs_e_autovec_L8_serial default  11.79 ns/att
+0 synth5m rs_e_autovec_L8_t4 default  3.13 ns/att
+0 synth5m rs_e_autovecdispatch_L2_serial default  12.50 ns/att
+0 synth5m rs_e_autovecdispatch_L2_t4 default  3.27 ns/att
+0 synth5m rs_e_autovecdispatch_L4_serial default  8.89 ns/att
+0 synth5m rs_e_autovecdispatch_L4_t4 default  2.44 ns/att
+0 synth5m rs_e_autovecdispatch_L8_serial default  11.13 ns/att
+0 synth5m rs_e_autovecdispatch_L8_t4 default  2.99 ns/att
+0 synth5m rs_e_fearless_L4_t4_alpha default  2.69 ns/att
+0 synth5m rs_e_fearless_L4_serial native  6.11 ns/att
+0 synth5m rs_e_fearless_L4_t4 native  1.80 ns/att
+0 synth5m rs_e_fearless_L8_serial native  5.32 ns/att
+0 synth5m rs_e_fearless_L8_t4 native  1.47 ns/att
+0 synth5m rs_e_autovec_L4_serial native  9.08 ns/att
+0 synth5m rs_e_autovec_L4_t4 native  2.45 ns/att
+0 synth5m rs_e_autovec_L8_serial native  11.62 ns/att
+0 synth5m rs_e_autovec_L8_t4 native  3.03 ns/att
+0 synth5m rs_e_v1mv_L4_serial v1_unsafe_default  8.25 ns/att
+0 synth5m rs_e_v1mv_L4_t4 v1_unsafe_default  2.64 ns/att
+0 synth5m rs_e_v1mv_L8_serial v1_unsafe_default  8.48 ns/att
+0 synth5m rs_e_v1mv_L8_t4 v1_unsafe_default  2.16 ns/att
+0 synth5m rs_e_fearless_L2_serial default sse2 10.85 ns/att
+0 synth5m rs_e_fearless_L4_serial default sse2 7.95 ns/att
+0 synth5m rs_e_fearless_L8_serial default sse2 7.80 ns/att
+0 synth5m rs_e_fearless_L2_serial default sse4_2 11.68 ns/att
+0 synth5m rs_e_fearless_L4_serial default sse4_2 8.56 ns/att
+0 synth5m rs_e_fearless_L8_serial default sse4_2 8.00 ns/att
+0 synth5m rs_e_fearless_L2_serial default avx2 11.65 ns/att
+0 synth5m rs_e_fearless_L4_serial default avx2 7.58 ns/att
+0 synth5m rs_e_fearless_L8_serial default avx2 5.73 ns/att
+1 as_all cpp_serial default  47.90 ns/att
+1 as_all cpp_par default  46.90 ns/att
+1 as_all cpp_predict_serial default  40.77 ns/att
+1 as_all cpp_predict_par default  25.07 ns/att
+1 as_all rs_a_serial default  22.80 ns/att
+1 as_all rs_b_t1 default  22.69 ns/att
+1 as_all rs_b_t2 default  13.13 ns/att
+1 as_all rs_b_t4 default  10.45 ns/att
+1 as_all rs_c_noalpha_serial default  21.56 ns/att
+1 as_all rs_c_noalpha_t4 default  6.41 ns/att
+1 as_all rs_c_predict_serial default  10.13 ns/att
+1 as_all rs_c_predict_t4 default  4.15 ns/att
+1 as_all rs_d_i8u16_serial default  22.77 ns/att
+1 as_all rs_d_i8u16_noalpha_t4 default  6.94 ns/att
+1 as_all rs_a_serial native  21.19 ns/att
+1 as_all rs_b_t1 native  21.34 ns/att
+1 as_all rs_b_t2 native  13.58 ns/att
+1 as_all rs_b_t4 native  7.78 ns/att
+1 as_all rs_c_noalpha_serial native  21.42 ns/att
+1 as_all rs_c_noalpha_t4 native  6.25 ns/att
+1 as_all rs_c_predict_serial native  10.24 ns/att
+1 as_all rs_c_predict_t4 native  8.96 ns/att
+1 as_all rs_d_i8u16_serial native  21.27 ns/att
+1 as_all rs_d_i8u16_noalpha_t4 native  6.43 ns/att
+1 as_all rs_a_serial v1_unsafe_default  22.61 ns/att
+1 as_all rs_b_t1 v1_unsafe_default  21.68 ns/att
+1 as_all rs_b_t2 v1_unsafe_default  14.29 ns/att
+1 as_all rs_b_t4 v1_unsafe_default  8.85 ns/att
+1 as_all rs_c_noalpha_serial v1_unsafe_default  21.68 ns/att
+1 as_all rs_c_noalpha_t4 v1_unsafe_default  8.91 ns/att
+1 as_all rs_c_predict_serial v1_unsafe_default  10.19 ns/att
+1 as_all rs_c_predict_t4 v1_unsafe_default  4.11 ns/att
+1 as_all rs_d_i8u16_serial v1_unsafe_default  21.44 ns/att
+1 as_all rs_d_i8u16_noalpha_t4 v1_unsafe_default  9.22 ns/att
+1 as_all rs_e_fearless_L2_serial default  10.03 ns/att
+1 as_all rs_e_fearless_L2_t4 default  3.24 ns/att
+1 as_all rs_e_fearless_L4_serial default  6.34 ns/att
+1 as_all rs_e_fearless_L4_t4 default  2.27 ns/att
+1 as_all rs_e_fearless_L8_serial default  6.67 ns/att
+1 as_all rs_e_fearless_L8_t4 default  6.09 ns/att
+1 as_all rs_e_autovec_L2_serial default  13.53 ns/att
+1 as_all rs_e_autovec_L2_t4 default  5.94 ns/att
+1 as_all rs_e_autovec_L4_serial default  12.68 ns/att
+1 as_all rs_e_autovec_L4_t4 default  6.09 ns/att
+1 as_all rs_e_autovec_L8_serial default  14.14 ns/att
+1 as_all rs_e_autovec_L8_t4 default  8.93 ns/att
+1 as_all rs_e_autovecdispatch_L2_serial default  12.18 ns/att
+1 as_all rs_e_autovecdispatch_L2_t4 default  8.46 ns/att
+1 as_all rs_e_autovecdispatch_L4_serial default  9.55 ns/att
+1 as_all rs_e_autovecdispatch_L4_t4 default  8.24 ns/att
+1 as_all rs_e_autovecdispatch_L8_serial default  13.06 ns/att
+1 as_all rs_e_autovecdispatch_L8_t4 default  6.31 ns/att
+1 as_all rs_e_fearless_L4_t4_alpha default  8.16 ns/att
+1 as_all rs_e_fearless_L4_serial native  6.27 ns/att
+1 as_all rs_e_fearless_L4_t4 native  7.48 ns/att
+1 as_all rs_e_fearless_L8_serial native  6.44 ns/att
+1 as_all rs_e_fearless_L8_t4 native  2.02 ns/att
+1 as_all rs_e_autovec_L4_serial native  9.13 ns/att
+1 as_all rs_e_autovec_L4_t4 native  6.77 ns/att
+1 as_all rs_e_autovec_L8_serial native  13.61 ns/att
+1 as_all rs_e_autovec_L8_t4 native  7.91 ns/att
+1 as_all rs_e_v1mv_L4_serial v1_unsafe_default  11.89 ns/att
+1 as_all rs_e_v1mv_L4_t4 v1_unsafe_default  5.04 ns/att
+1 as_all rs_e_v1mv_L8_serial v1_unsafe_default  9.97 ns/att
+1 as_all rs_e_v1mv_L8_t4 v1_unsafe_default  3.52 ns/att
+1 as_all rs_e_fearless_L2_serial default sse2 10.79 ns/att
+1 as_all rs_e_fearless_L4_serial default sse2 7.91 ns/att
+1 as_all rs_e_fearless_L8_serial default sse2 9.17 ns/att
+1 as_all rs_e_fearless_L2_serial default sse4_2 11.84 ns/att
+1 as_all rs_e_fearless_L4_serial default sse4_2 8.46 ns/att
+1 as_all rs_e_fearless_L8_serial default sse4_2 9.43 ns/att
+1 as_all rs_e_fearless_L2_serial default avx2 11.36 ns/att
+1 as_all rs_e_fearless_L4_serial default avx2 6.99 ns/att
+1 as_all rs_e_fearless_L8_serial default avx2 6.93 ns/att
+1 synth5m cpp_serial default  55.79 ns/att
+1 synth5m cpp_par default  14.15 ns/att
+1 synth5m cpp_predict_serial default  49.22 ns/att
+1 synth5m cpp_predict_par default  12.49 ns/att
+1 synth5m rs_a_serial default  21.64 ns/att
+1 synth5m rs_b_t1 default  22.19 ns/att
+1 synth5m rs_b_t2 default  11.33 ns/att
+1 synth5m rs_b_t4 default  5.76 ns/att
+1 synth5m rs_c_noalpha_serial default  19.47 ns/att
+1 synth5m rs_c_noalpha_t4 default  5.00 ns/att
+1 synth5m rs_c_predict_serial default  9.15 ns/att
+1 synth5m rs_c_predict_t4 default  2.52 ns/att
+1 synth5m rs_d_i8u16_serial default  24.16 ns/att
+1 synth5m rs_d_i8u16_noalpha_t4 default  6.05 ns/att
+1 synth5m rs_a_serial native  20.95 ns/att
+1 synth5m rs_b_t1 native  21.63 ns/att
+1 synth5m rs_b_t2 native  11.07 ns/att
+1 synth5m rs_b_t4 native  5.66 ns/att
+1 synth5m rs_c_noalpha_serial native  18.77 ns/att
+1 synth5m rs_c_noalpha_t4 native  4.91 ns/att
+1 synth5m rs_c_predict_serial native  9.20 ns/att
+1 synth5m rs_c_predict_t4 native  2.41 ns/att
+1 synth5m rs_d_i8u16_serial native  20.75 ns/att
+1 synth5m rs_d_i8u16_noalpha_t4 native  5.19 ns/att
+1 synth5m rs_a_serial v1_unsafe_default  21.07 ns/att
+1 synth5m rs_b_t1 v1_unsafe_default  20.99 ns/att
+1 synth5m rs_b_t2 v1_unsafe_default  10.87 ns/att
+1 synth5m rs_b_t4 v1_unsafe_default  5.85 ns/att
+1 synth5m rs_c_noalpha_serial v1_unsafe_default  19.49 ns/att
+1 synth5m rs_c_noalpha_t4 v1_unsafe_default  5.01 ns/att
+1 synth5m rs_c_predict_serial v1_unsafe_default  9.09 ns/att
+1 synth5m rs_c_predict_t4 v1_unsafe_default  2.62 ns/att
+1 synth5m rs_d_i8u16_serial v1_unsafe_default  21.20 ns/att
+1 synth5m rs_d_i8u16_noalpha_t4 v1_unsafe_default  5.24 ns/att
+1 synth5m rs_e_fearless_L2_serial default  9.97 ns/att
+1 synth5m rs_e_fearless_L2_t4 default  2.61 ns/att
+1 synth5m rs_e_fearless_L4_serial default  6.16 ns/att
+1 synth5m rs_e_fearless_L4_t4 default  1.83 ns/att
+1 synth5m rs_e_fearless_L8_serial default  5.36 ns/att
+1 synth5m rs_e_fearless_L8_t4 default  1.58 ns/att
+1 synth5m rs_e_autovec_L2_serial default  14.63 ns/att
+1 synth5m rs_e_autovec_L2_t4 default  3.72 ns/att
+1 synth5m rs_e_autovec_L4_serial default  12.26 ns/att
+1 synth5m rs_e_autovec_L4_t4 default  3.58 ns/att
+1 synth5m rs_e_autovec_L8_serial default  11.85 ns/att
+1 synth5m rs_e_autovec_L8_t4 default  3.22 ns/att
+1 synth5m rs_e_autovecdispatch_L2_serial default  12.61 ns/att
+1 synth5m rs_e_autovecdispatch_L2_t4 default  3.17 ns/att
+1 synth5m rs_e_autovecdispatch_L4_serial default  8.98 ns/att
+1 synth5m rs_e_autovecdispatch_L4_t4 default  2.42 ns/att
+1 synth5m rs_e_autovecdispatch_L8_serial default  10.98 ns/att
+1 synth5m rs_e_autovecdispatch_L8_t4 default  2.83 ns/att
+1 synth5m rs_e_fearless_L4_t4_alpha default  3.23 ns/att
+1 synth5m rs_e_fearless_L4_serial native  6.16 ns/att
+1 synth5m rs_e_fearless_L4_t4 native  1.85 ns/att
+1 synth5m rs_e_fearless_L8_serial native  5.24 ns/att
+1 synth5m rs_e_fearless_L8_t4 native  1.74 ns/att
+1 synth5m rs_e_autovec_L4_serial native  8.80 ns/att
+1 synth5m rs_e_autovec_L4_t4 native  2.30 ns/att
+1 synth5m rs_e_autovec_L8_serial native  11.39 ns/att
+1 synth5m rs_e_autovec_L8_t4 native  3.05 ns/att
+1 synth5m rs_e_v1mv_L4_serial v1_unsafe_default  8.43 ns/att
+1 synth5m rs_e_v1mv_L4_t4 v1_unsafe_default  2.28 ns/att
+1 synth5m rs_e_v1mv_L8_serial v1_unsafe_default  9.28 ns/att
+1 synth5m rs_e_v1mv_L8_t4 v1_unsafe_default  2.36 ns/att
+1 synth5m rs_e_fearless_L2_serial default sse2 10.90 ns/att
+1 synth5m rs_e_fearless_L4_serial default sse2 7.91 ns/att
+1 synth5m rs_e_fearless_L8_serial default sse2 8.06 ns/att
+1 synth5m rs_e_fearless_L2_serial default sse4_2 11.61 ns/att
+1 synth5m rs_e_fearless_L4_serial default sse4_2 8.28 ns/att
+1 synth5m rs_e_fearless_L8_serial default sse4_2 7.96 ns/att
+1 synth5m rs_e_fearless_L2_serial default avx2 11.51 ns/att
+1 synth5m rs_e_fearless_L4_serial default avx2 6.95 ns/att
+1 synth5m rs_e_fearless_L8_serial default avx2 5.68 ns/att
+2 as_all cpp_serial default  51.90 ns/att
+2 as_all cpp_par default  29.85 ns/att
+2 as_all cpp_predict_serial default  42.96 ns/att
+2 as_all cpp_predict_par default  31.38 ns/att
+2 as_all rs_a_serial default  22.46 ns/att
+2 as_all rs_b_t1 default  24.29 ns/att
+2 as_all rs_b_t2 default  13.42 ns/att
+2 as_all rs_b_t4 default  7.97 ns/att
+2 as_all rs_c_noalpha_serial default  21.39 ns/att
+2 as_all rs_c_noalpha_t4 default  6.64 ns/att
+2 as_all rs_c_predict_serial default  10.29 ns/att
+2 as_all rs_c_predict_t4 default  8.90 ns/att
+2 as_all rs_d_i8u16_serial default  22.12 ns/att
+2 as_all rs_d_i8u16_noalpha_t4 default  6.60 ns/att
+2 as_all rs_a_serial native  22.81 ns/att
+2 as_all rs_b_t1 native  21.76 ns/att
+2 as_all rs_b_t2 native  12.80 ns/att
+2 as_all rs_b_t4 native  7.12 ns/att
+2 as_all rs_c_noalpha_serial native  20.72 ns/att
+2 as_all rs_c_noalpha_t4 native  6.43 ns/att
+2 as_all rs_c_predict_serial native  10.21 ns/att
+2 as_all rs_c_predict_t4 native  7.98 ns/att
+2 as_all rs_d_i8u16_serial native  21.18 ns/att
+2 as_all rs_d_i8u16_noalpha_t4 native  6.16 ns/att
+2 as_all rs_a_serial v1_unsafe_default  21.66 ns/att
+2 as_all rs_b_t1 v1_unsafe_default  22.02 ns/att
+2 as_all rs_b_t2 v1_unsafe_default  12.83 ns/att
+2 as_all rs_b_t4 v1_unsafe_default  9.13 ns/att
+2 as_all rs_c_noalpha_serial v1_unsafe_default  20.93 ns/att
+2 as_all rs_c_noalpha_t4 v1_unsafe_default  8.19 ns/att
+2 as_all rs_c_predict_serial v1_unsafe_default  10.17 ns/att
+2 as_all rs_c_predict_t4 v1_unsafe_default  6.33 ns/att
+2 as_all rs_d_i8u16_serial v1_unsafe_default  21.59 ns/att
+2 as_all rs_d_i8u16_noalpha_t4 v1_unsafe_default  7.08 ns/att
+2 as_all rs_e_fearless_L2_serial default  10.20 ns/att
+2 as_all rs_e_fearless_L2_t4 default  8.69 ns/att
+2 as_all rs_e_fearless_L4_serial default  6.25 ns/att
+2 as_all rs_e_fearless_L4_t4 default  3.03 ns/att
+2 as_all rs_e_fearless_L8_serial default  6.38 ns/att
+2 as_all rs_e_fearless_L8_t4 default  4.25 ns/att
+2 as_all rs_e_autovec_L2_serial default  13.44 ns/att
+2 as_all rs_e_autovec_L2_t4 default  6.03 ns/att
+2 as_all rs_e_autovec_L4_serial default  12.68 ns/att
+2 as_all rs_e_autovec_L4_t4 default  6.75 ns/att
+2 as_all rs_e_autovec_L8_serial default  14.75 ns/att
+2 as_all rs_e_autovec_L8_t4 default  4.79 ns/att
+2 as_all rs_e_autovecdispatch_L2_serial default  12.17 ns/att
+2 as_all rs_e_autovecdispatch_L2_t4 default  7.20 ns/att
+2 as_all rs_e_autovecdispatch_L4_serial default  9.23 ns/att
+2 as_all rs_e_autovecdispatch_L4_t4 default  4.69 ns/att
+2 as_all rs_e_autovecdispatch_L8_serial default  13.19 ns/att
+2 as_all rs_e_autovecdispatch_L8_t4 default  4.83 ns/att
+2 as_all rs_e_fearless_L4_t4_alpha default  8.01 ns/att
+2 as_all rs_e_fearless_L4_serial native  6.30 ns/att
+2 as_all rs_e_fearless_L4_t4 native  7.10 ns/att
+2 as_all rs_e_fearless_L8_serial native  6.26 ns/att
+2 as_all rs_e_fearless_L8_t4 native  5.54 ns/att
+2 as_all rs_e_autovec_L4_serial native  9.10 ns/att
+2 as_all rs_e_autovec_L4_t4 native  3.43 ns/att
+2 as_all rs_e_autovec_L8_serial native  18.61 ns/att
+2 as_all rs_e_autovec_L8_t4 native  5.92 ns/att
+2 as_all rs_e_v1mv_L4_serial v1_unsafe_default  8.66 ns/att
+2 as_all rs_e_v1mv_L4_t4 v1_unsafe_default  8.35 ns/att
+2 as_all rs_e_v1mv_L8_serial v1_unsafe_default  10.66 ns/att
+2 as_all rs_e_v1mv_L8_t4 v1_unsafe_default  8.16 ns/att
+2 as_all rs_e_fearless_L2_serial default sse2 10.77 ns/att
+2 as_all rs_e_fearless_L4_serial default sse2 7.87 ns/att
+2 as_all rs_e_fearless_L8_serial default sse2 9.18 ns/att
+2 as_all rs_e_fearless_L2_serial default sse4_2 11.51 ns/att
+2 as_all rs_e_fearless_L4_serial default sse4_2 9.63 ns/att
+2 as_all rs_e_fearless_L8_serial default sse4_2 9.72 ns/att
+2 as_all rs_e_fearless_L2_serial default avx2 11.60 ns/att
+2 as_all rs_e_fearless_L4_serial default avx2 6.97 ns/att
+2 as_all rs_e_fearless_L8_serial default avx2 6.95 ns/att
+2 synth5m cpp_serial default  53.17 ns/att
+2 synth5m cpp_par default  14.80 ns/att
+2 synth5m cpp_predict_serial default  48.74 ns/att
+2 synth5m cpp_predict_par default  12.77 ns/att
+2 synth5m rs_a_serial default  22.04 ns/att
+2 synth5m rs_b_t1 default  21.98 ns/att
+2 synth5m rs_b_t2 default  11.26 ns/att
+2 synth5m rs_b_t4 default  5.71 ns/att
+2 synth5m rs_c_noalpha_serial default  19.29 ns/att
+2 synth5m rs_c_noalpha_t4 default  5.05 ns/att
+2 synth5m rs_c_predict_serial default  9.23 ns/att
+2 synth5m rs_c_predict_t4 default  2.46 ns/att
+2 synth5m rs_d_i8u16_serial default  22.25 ns/att
+2 synth5m rs_d_i8u16_noalpha_t4 default  4.96 ns/att
+2 synth5m rs_a_serial native  20.95 ns/att
+2 synth5m rs_b_t1 native  21.17 ns/att
+2 synth5m rs_b_t2 native  11.25 ns/att
+2 synth5m rs_b_t4 native  5.46 ns/att
+2 synth5m rs_c_noalpha_serial native  18.49 ns/att
+2 synth5m rs_c_noalpha_t4 native  4.74 ns/att
+2 synth5m rs_c_predict_serial native  9.12 ns/att
+2 synth5m rs_c_predict_t4 native  2.42 ns/att
+2 synth5m rs_d_i8u16_serial native  20.65 ns/att
+2 synth5m rs_d_i8u16_noalpha_t4 native  4.88 ns/att
+2 synth5m rs_a_serial v1_unsafe_default  20.72 ns/att
+2 synth5m rs_b_t1 v1_unsafe_default  20.93 ns/att
+2 synth5m rs_b_t2 v1_unsafe_default  10.52 ns/att
+2 synth5m rs_b_t4 v1_unsafe_default  5.43 ns/att
+2 synth5m rs_c_noalpha_serial v1_unsafe_default  18.74 ns/att
+2 synth5m rs_c_noalpha_t4 v1_unsafe_default  4.81 ns/att
+2 synth5m rs_c_predict_serial v1_unsafe_default  8.89 ns/att
+2 synth5m rs_c_predict_t4 v1_unsafe_default  2.37 ns/att
+2 synth5m rs_d_i8u16_serial v1_unsafe_default  21.73 ns/att
+2 synth5m rs_d_i8u16_noalpha_t4 v1_unsafe_default  5.30 ns/att
+2 synth5m rs_e_fearless_L2_serial default  10.41 ns/att
+2 synth5m rs_e_fearless_L2_t4 default  3.00 ns/att
+2 synth5m rs_e_fearless_L4_serial default  6.36 ns/att
+2 synth5m rs_e_fearless_L4_t4 default  2.00 ns/att
+2 synth5m rs_e_fearless_L8_serial default  5.28 ns/att
+2 synth5m rs_e_fearless_L8_t4 default  1.45 ns/att
+2 synth5m rs_e_autovec_L2_serial default  13.86 ns/att
+2 synth5m rs_e_autovec_L2_t4 default  3.67 ns/att
+2 synth5m rs_e_autovec_L4_serial default  12.19 ns/att
+2 synth5m rs_e_autovec_L4_t4 default  3.14 ns/att
+2 synth5m rs_e_autovec_L8_serial default  11.64 ns/att
+2 synth5m rs_e_autovec_L8_t4 default  3.09 ns/att
+2 synth5m rs_e_autovecdispatch_L2_serial default  12.43 ns/att
+2 synth5m rs_e_autovecdispatch_L2_t4 default  3.20 ns/att
+2 synth5m rs_e_autovecdispatch_L4_serial default  9.05 ns/att
+2 synth5m rs_e_autovecdispatch_L4_t4 default  2.34 ns/att
+2 synth5m rs_e_autovecdispatch_L8_serial default  11.02 ns/att
+2 synth5m rs_e_autovecdispatch_L8_t4 default  2.83 ns/att
+2 synth5m rs_e_fearless_L4_t4_alpha default  2.69 ns/att
+2 synth5m rs_e_fearless_L4_serial native  6.94 ns/att
+2 synth5m rs_e_fearless_L4_t4 native  1.64 ns/att
+2 synth5m rs_e_fearless_L8_serial native  5.47 ns/att
+2 synth5m rs_e_fearless_L8_t4 native  1.51 ns/att
+2 synth5m rs_e_autovec_L4_serial native  8.80 ns/att
+2 synth5m rs_e_autovec_L4_t4 native  2.59 ns/att
+2 synth5m rs_e_autovec_L8_serial native  11.52 ns/att
+2 synth5m rs_e_autovec_L8_t4 native  2.99 ns/att
+2 synth5m rs_e_v1mv_L4_serial v1_unsafe_default  8.66 ns/att
+2 synth5m rs_e_v1mv_L4_t4 v1_unsafe_default  2.21 ns/att
+2 synth5m rs_e_v1mv_L8_serial v1_unsafe_default  8.35 ns/att
+2 synth5m rs_e_v1mv_L8_t4 v1_unsafe_default  2.18 ns/att
+2 synth5m rs_e_fearless_L2_serial default sse2 11.34 ns/att
+2 synth5m rs_e_fearless_L4_serial default sse2 7.93 ns/att
+2 synth5m rs_e_fearless_L8_serial default sse2 7.72 ns/att
+2 synth5m rs_e_fearless_L2_serial default sse4_2 11.64 ns/att
+2 synth5m rs_e_fearless_L4_serial default sse4_2 8.60 ns/att
+2 synth5m rs_e_fearless_L8_serial default sse4_2 7.89 ns/att
+2 synth5m rs_e_fearless_L2_serial default avx2 11.43 ns/att
+2 synth5m rs_e_fearless_L4_serial default avx2 6.83 ns/att
+2 synth5m rs_e_fearless_L8_serial default avx2 5.58 ns/att

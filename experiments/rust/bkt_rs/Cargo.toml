@@ -1,0 +1,22 @@
+[package]
+name = "bkt_rs"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.89"
+
+[dependencies]
+fearless_simd = "1.1.0"
+numpy = "0.29.0"
+pyo3 = { version = "0.29.3", features = ["extension-module", "abi3-py39"] }
+rayon = "1.12.0"
+
+[lib]
+name = "bkt_rs"
+crate-type = ["cdylib"]
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = true
+

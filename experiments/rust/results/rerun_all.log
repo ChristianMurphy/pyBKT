@@ -1,0 +1,35 @@
+🐍 Found CPython 3.13 at /tmp/claude-0/exp/rust/bkt_rs/../venv/bin/python
+🔗 Found pyo3 bindings with abi3-py3.9 support
+📦 Built wheel for abi3 Python ≥ 3.9 to ../wheels/default/bkt_rs-0.1.0-cp39-abi3-manylinux_2_34_x86_64.whl
+🐍 Found CPython 3.13 at /tmp/claude-0/exp/rust/bkt_rs/../venv/bin/python
+🔗 Found pyo3 bindings with abi3-py3.9 support
+📦 Built wheel for abi3 Python ≥ 3.9 to ../wheels/native/bkt_rs-0.1.0-cp39-abi3-manylinux_2_34_x86_64.whl
+-rw-r--r-- 1 root root 7125560 Oct  9 03:58 inst/default/bkt_rs/bkt_rs.abi3.so
+-rw-r--r-- 1 root root 3325128 Oct  9 03:58 inst/native/bkt_rs/bkt_rs.abi3.so
+-rw-r--r-- 1 root root 2451456 Oct  9 03:28 inst/v1_unsafe_default/bkt_rs/bkt_rs.abi3.so
+-rw-r--r-- 1 root root 2481544 Oct  9 03:28 inst/v1_unsafe_native/bkt_rs/bkt_rs.abi3.so
+🐍 Found CPython 3.13 at /tmp/claude-0/exp/rust/archive/bkt_rs_v1_unsafe/../../venv/bin/python
+🔗 Found pyo3 bindings with abi3-py3.9 support
+📦 Built wheel for abi3 Python ≥ 3.9 to ../../wheels/v1/bkt_rs-0.1.0-cp39-abi3-manylinux_2_34_x86_64.whl
+1860 e_step checks + 300 predict checks, failures: 0
+as_all chunked: distinct hashes over threads {1,2,3,4,8,16} x 5 runs = 1 {'b550668678e13265'}
+as_all serial: distinct hashes over 5 runs = 1
+as_all chunk 16384 vs 65536 identical? False
+as_all C++ parallel: distinct count hashes over 20 runs = 1
+synth5m chunked: distinct hashes over threads {1,2,3,4,8,16} x 5 runs = 1 {'d0a5b06e541127b3'}
+synth5m serial: distinct hashes over 5 runs = 1
+synth5m chunk 16384 vs 65536 identical? False
+synth5m C++ parallel: distinct count hashes over 20 runs = 7
+as_all: fsum=-251007.4258211593
+  serial(C++ order) err=-3.810e-08  chunked err=-7.538e-09  lanes err=-4.075e-10
+synth5m: fsum=-3750860.040946558
+  serial(C++ order) err=-2.217e-05  chunked err=+1.648e-07  lanes err=-1.863e-09
+prior    bit-identical=True maxabs=0.00e+00
+learns   bit-identical=True maxabs=0.00e+00
+forgets  bit-identical=True maxabs=0.00e+00
+guesses  bit-identical=True maxabs=0.00e+00
+slips    bit-identical=True maxabs=0.00e+00
+As       bit-identical=True maxabs=0.00e+00
+emissions bit-identical=True maxabs=0.00e+00
+pi_0     bit-identical=True maxabs=0.00e+00
+loglik C++ (int-truncated) last 3: [-209928. -209926. -209924.]  rust (float): [-209928.70310849 -209926.35016385 -209924.62481602]
