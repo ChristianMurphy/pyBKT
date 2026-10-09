@@ -338,8 +338,28 @@ Idle machine (load 0.1), all variants interleaved in one process, best of 7, E-s
 SIMD across students and threads across chunks compose (10.4–13.5x over exact serial). Thread scaling
 with SIMD is 3.55x on uniform lengths and 2.9–3.2x on ASSISTments, where long, uneven sequences leave
 threads and lanes idle. On the exact path, rayon and `bkt_lean`'s plain threads perform the same. With
-SIMD, rayon is 44% faster on synthetic and 10% on ASSISTments. Thread start-up (~0.11 ms per call) does
-not explain that; how the threads take chunks is the likely cause, not yet investigated.
+SIMD, rayon looked 44% faster on synthetic and 10% on ASSISTments.
+
+**The cause is the per-call input copy, not scheduling** (`rust/lean_gap.py`, idle machine, best of 9).
+`bkt_lean.e_step` copies inputs into compact codes on every call, single-threaded with the GIL held, at about
+0.6–1.3 ns/answer. That is negligible against the 21 ns exact kernel but about 40% of a 1.5 ns SIMD call,
+and it does not shrink with more threads. `bkt_lean` already claims chunks dynamically through a shared
+`AtomicUsize`, so faster cores (P-cores) take more chunks. With a `Dataset` converted once (`e_step_ds`;
+`fit()` does the same), plain threads match rayon. SIMD L=8, 4 threads, ns/answer:
+
+| | rayon | lean, copy per call | lean, `Dataset` |
+| --- | --- | --- | --- |
+| synthetic, 64k chunks | 1.59 | 2.22 | 1.55 |
+| synthetic, 16k chunks | 1.52 | 2.09 | 1.65 |
+| ASSISTments, 64k chunks | 2.08 | 3.09 | 2.42 |
+| ASSISTments, 16k chunks | 2.89 | 3.15 | 2.76 |
+
+On uneven lengths, smaller chunks balance threads better but pack SIMD lanes worse: students are sorted by
+length only within a chunk, so serial SIMD on ASSISTments is 7.3 ns/answer at 16k vs 5.8 at 64k.
+Sorting all students by length first and then dealing groups into chunks would avoid that trade-off.
+The remaining gap at 64k on ASSISTments (2.42 vs 2.08) comes from about 7 chunks for 4 threads, and is
+within run-to-run noise. Conclusion: rayon is not needed for speed in flat workloads. What it still
+adds is nested parallelism (skills × restarts × chunks).
 
 ## 6. Exact work sharing through prefixes
 
