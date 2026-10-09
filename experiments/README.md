@@ -236,6 +236,34 @@ starts and lengths.
 Parquet input helps pandas (34.9 s against 60.8 s for the CSV) but not
 Polars or DuckDB here; the time is dominated by the 20M-row sort.
 
+### DuckDB: parse, sort, and convert_data as one query (`load_breakdown.py`, `duckdb_convert.py`)
+
+The loader table above isn't like for like: the pyarrow loader sorts in NumPy, while DuckDB sorts in SQL.
+Splitting each into its two steps (20M rows, 871 MB CSV; load average about 3.4, so absolute times are noisy):
+
+| Step | DuckDB | pyarrow | Other |
+| --- | --- | --- | --- |
+| parse 4 columns | **3.4 s, 1.3 GB** | 6.3 s, 2.5 GB | |
+| sort by (skill, user, order) | **6.6 s** | 18.5 s (Arrow `sort_by`) | 13.6 s (NumPy `lexsort`) |
+
+`duckdb_convert.py` runs all of `convert_data` in SQL: filtering, the 1/2 answer codes, ordering with a
+deterministic tie-break (file row number), skill codes, multigs and multilearn codes (templates ranked
+within each skill), and multipair (`LAG` within each student, pairs numbered by first appearance within
+the skill). Python only receives the final columns.
+
+- `python duckdb_convert.py check ../data/as.csv`: identical to pyBKT's `convert_data` for **all 38,517
+  ASSISTments students without tied `order_id`s**, for the default, multigs, multilearn and multipair
+  model types (0 mismatches). Students with ties are skipped because pyBKT orders them arbitrarily.
+  Multipair key *strings* are not reproduced, only the numbering, because pyBKT's keys are numpy reprs.
+- Timing (`time <file> <model>`): ASSISTments, default model, read plus convert in **0.65 s**, against
+  1.5 s read plus 0.88 s convert for phase 1 pyBKT; all model types, 1.18 s. Synthetic 20M rows: default
+  14.3 s (2.9 GB), multigs 20.0 s, multipair 39 s (5.6 GB). The synthetic file is a worst case for
+  multipair: 19.5M student-skill sequences of about 1 answer each.
+- The forward/backward recursion is sequential per student and stays in the kernel (Rust, C++ or NumPy).
+  DuckDB is the place for everything relational: conversion, splits and folds (for example
+  `hash(user_id) % k`), aggregating evaluation metrics, and out-of-core sorting (it spills to disk).
+  It can stream record batches to the kernel.
+
 Two data findings:
 
 - **multigs data is stored dense**, templates × answers. On ASSISTments with
