@@ -323,6 +323,24 @@ ns per answer (ASSISTments merged / synthetic 5M); C++ serial is 49.1 / 54.7, C+
   the default compares floats.
 - **Limits:** the GIL is held for the whole call, as in C++. The default build's plain lanes use SSE2 only.
 
+### Threads × SIMD, controlled (`rust/rayon_simd.py`)
+
+Idle machine (load 0.1), all variants interleaved in one process, best of 7, E-step without alpha output, ns/answer:
+
+| | ASSISTments merged | synthetic 5M |
+| --- | --- | --- |
+| exact, 1 thread | 23.7 | 20.6 |
+| fearless SIMD L=8, 1 thread | 7.3 | 5.4 |
+| exact, 4 threads (rayon) | 7.3 | 5.9 |
+| **SIMD L=8 + rayon, 4 threads** | **2.28** | **1.52** |
+| SIMD L=8 + std scoped threads (`bkt_lean`), 4 threads | 2.51 | 2.19 |
+
+SIMD across students and threads across chunks compose (10.4–13.5x over exact serial). Thread scaling
+with SIMD is 3.55x on uniform lengths and 2.9–3.2x on ASSISTments, where long, uneven sequences leave
+threads and lanes idle. On the exact path, rayon and `bkt_lean`'s plain threads perform the same. With
+SIMD, rayon is 44% faster on synthetic and 10% on ASSISTments. Thread start-up (~0.11 ms per call) does
+not explain that; how the threads take chunks is the likely cause, not yet investigated.
+
 ## 6. Exact work sharing through prefixes
 
 With forward-only smoothing, students whose histories share a prefix share φ
