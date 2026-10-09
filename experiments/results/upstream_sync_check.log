@@ -1,0 +1,76 @@
+### harness merged tree f48ecb19a2883f1a6717dfeb9b1d00cbdbdd1fe4 in <tmp>
+compiled ok <tmp>/site/pyBKT/fit/E_step.cpython-313-x86_64-linux-gnu.so
+--- compiled, NumPy 2
+..FF...........F                                                         [100%]
+=================================== FAILURES ===================================
+____________________ test_em_matches_reference[multilearn] _____________________
+[XPASS(strict)] compiled E-step reuses the first template, see issue #70
+______________________ test_em_matches_reference[multigs] ______________________
+[XPASS(strict)] compiled E-step reuses the first template, see issue #70
+_________________ test_recovers_a_guess_rate_for_each_template _________________
+[XPASS(strict)] compiled E-step reuses the first template, see issue #70
+=========================== short test summary info ============================
+FAILED tests/test_backend_parity.py::test_em_matches_reference[multilearn] - ...
+FAILED tests/test_backend_parity.py::test_em_matches_reference[multigs] - [XP...
+FAILED tests/test_parameter_recovery.py::test_recovers_a_guess_rate_for_each_template
+3 failed, 13 passed in 10.17s
+--- pure Python, NumPy 2
+xxxx......xxxxss                                                         [100%]
+=========================== short test summary info ============================
+XFAIL tests/test_backend_parity.py::test_em_matches_reference[default] - pure-Python fit fails on NumPy 2, see issue #65
+XFAIL tests/test_backend_parity.py::test_em_matches_reference[forgets] - pure-Python fit fails on NumPy 2, see issue #65
+XFAIL tests/test_backend_parity.py::test_em_matches_reference[multilearn] - pure-Python fit fails on NumPy 2, see issue #65
+XFAIL tests/test_backend_parity.py::test_em_matches_reference[multigs] - pure-Python fit fails on NumPy 2, see issue #65
+XFAIL tests/test_metrics.py::test_evaluate_rejects_an_unknown_metric_name - pure-Python fit fails on NumPy 2, see issue #65
+XFAIL tests/test_model_outputs.py::test_fit_and_predictions_match_reference[default] - pure-Python fit fails on NumPy 2, see issue #65
+XFAIL tests/test_model_outputs.py::test_fit_and_predictions_match_reference[forgets] - pure-Python fit fails on NumPy 2, see issue #65
+XFAIL tests/test_one_attempt_students.py::test_one_correct_answer_raises_the_guess_estimate - pure-Python fit fails on NumPy 2, see issue #65
+6 passed, 2 skipped, 8 xfailed in 2.15s
+--- pure Python, NumPy 1
+.............Fss                                                         [100%]
+=================================== FAILURES ===================================
+______________ test_one_correct_answer_raises_the_guess_estimate _______________
+[XPASS(strict)] pure-Python E-step skips one-attempt answers, see issue #72
+=============================== warnings summary ===============================
+
+=========================== short test summary info ============================
+FAILED tests/test_one_attempt_students.py::test_one_correct_answer_raises_the_guess_estimate
+1 failed, 13 passed, 2 skipped, 278 warnings in 15.41s
+### phase1 merged tree a2d27e820bd5fc01372519cb1af37e5014f66952 in <tmp>
+compiled ok <tmp>/site/pyBKT/fit/E_step.cpython-313-x86_64-linux-gnu.so
+--- compiled, NumPy 2
+..FF...................F                                                 [100%]
+=================================== FAILURES ===================================
+____________________ test_em_matches_reference[multilearn] _____________________
+[XPASS(strict)] compiled E-step reuses the first template, see issue #70
+______________________ test_em_matches_reference[multigs] ______________________
+[XPASS(strict)] compiled E-step reuses the first template, see issue #70
+_________________ test_recovers_a_guess_rate_for_each_template _________________
+[XPASS(strict)] compiled E-step reuses the first template, see issue #70
+=========================== short test summary info ============================
+FAILED tests/test_backend_parity.py::test_em_matches_reference[multilearn] - ...
+FAILED tests/test_backend_parity.py::test_em_matches_reference[multigs] - [XP...
+FAILED tests/test_parameter_recovery.py::test_recovers_a_guess_rate_for_each_template
+3 failed, 21 passed in 2.52s
+--- pure Python, NumPy 2
+xxxx.....sss......xxxxss                                                 [100%]
+=========================== short test summary info ============================
+XFAIL tests/test_backend_parity.py::test_em_matches_reference[default] - pure-Python fit fails on NumPy 2, see issue #65
+XFAIL tests/test_backend_parity.py::test_em_matches_reference[forgets] - pure-Python fit fails on NumPy 2, see issue #65
+XFAIL tests/test_backend_parity.py::test_em_matches_reference[multilearn] - pure-Python fit fails on NumPy 2, see issue #65
+XFAIL tests/test_backend_parity.py::test_em_matches_reference[multigs] - pure-Python fit fails on NumPy 2, see issue #65
+XFAIL tests/test_metrics.py::test_evaluate_rejects_an_unknown_metric_name - pure-Python fit fails on NumPy 2, see issue #65
+XFAIL tests/test_model_outputs.py::test_fit_and_predictions_match_reference[default] - pure-Python fit fails on NumPy 2, see issue #65
+XFAIL tests/test_model_outputs.py::test_fit_and_predictions_match_reference[forgets] - pure-Python fit fails on NumPy 2, see issue #65
+XFAIL tests/test_one_attempt_students.py::test_one_correct_answer_raises_the_guess_estimate - pure-Python fit fails on NumPy 2, see issue #65
+11 passed, 5 skipped, 8 xfailed in 1.81s
+--- pure Python, NumPy 1
+.........sss.........Fss                                                 [100%]
+=================================== FAILURES ===================================
+______________ test_one_correct_answer_raises_the_guess_estimate _______________
+[XPASS(strict)] pure-Python E-step skips one-attempt answers, see issue #72
+=============================== warnings summary ===============================
+
+=========================== short test summary info ============================
+FAILED tests/test_one_attempt_students.py::test_one_correct_answer_raises_the_guess_estimate
+1 failed, 18 passed, 5 skipped, 278 warnings in 8.18s
