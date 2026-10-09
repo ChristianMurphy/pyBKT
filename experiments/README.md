@@ -226,7 +226,10 @@ step 859 of a 3,585-answer student, giving inf × 0 = NaN. pyBKT's C++ avoids th
 posterior probabilities (xi from α and the next γ, with NaN replaced by 0). Both NumPy E-steps now use
 that form: within 5.1e-15 of C++ on the failing case, and still within 2.7e-13 on both fixtures. The two
 forms are mathematically identical, so experiments that finished without NaN are unaffected. The
-stable form is somewhat slower (937 vs 676 ns/answer on merged ASSISTments, at variable load).
+stable form costs 11–15% more time than the scaled-β form it replaced. That was measured on an idle machine
+(load 0.02) with both versions interleaved in one process, best of 5 (`ab_estep.py`, old version kept as
+`np_estep_old.py`): 759 → 872 ns/answer on merged ASSISTments, 182 → 201 on synthetic 5M. An earlier,
+uncontrolled comparison taken hours apart under different load suggested 20–40%; that overstated it.
 
 ## 3. EM acceleration: SQUAREM
 
