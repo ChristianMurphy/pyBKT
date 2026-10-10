@@ -382,6 +382,39 @@ machine, 1.4–2x more per core, and that held on both CPUs measured; even cappe
 autovectorized code at AVX2. Rewriting the lane masks as bitwise blends didn't close the gap. Plan: plain
 lanes by default (no dependency), explicit SIMD as an optional feature or wheel.
 
+**GPU** (round 11, `gpu_precision.py`, `results/gpu_precision_*.csv`; no GPU in this container, so no GPU
+timings). Rust's options in October 2026: host APIs with kernels in another language (`wgpu` 30, WGSL;
+`vulkano`/`ash`, Vulkan; `cudarc`, CUDA C), or kernels written in Rust (CubeCL 0.11 on stable Rust, running
+on CUDA, ROCm and `wgpu`; rust-gpu and Rust-CUDA, both on nightly toolchains). Two measured problems and one
+estimate:
+
+- **Precision.** WebGPU and Metal have no f64, and consumer NVIDIA GPUs run f64 at 1/32–1/64 speed, so a
+  practical kernel is f32. Written the way the CPU kernels are (normalized state probabilities), f32 fails:
+  with forget = 0, a long run of correct answers drives P(unknown) down geometrically. f32 underflows it to
+  exactly 0 at answer 139 of a 992-answer ASSISTments sequence; f64 keeps it tiny but non-zero, so when the
+  student starts answering wrong (around answer 560) it recovers. In f32 it never can, every wrong answer
+  is scored as a slip, and that one student's log-likelihood is wrong by 186 nats (−988.1 vs −802.0;
+  `gpu_precision.py underflow`). EM in f32 then hits 0/0,
+  and 6 of 10 datasets end in NaN; one converged to an optimum 361 nats worse. Summing the per-student
+  partials in f64 doesn't help, because the error is inside each student's sequence. Even where f32 works,
+  one E-step's log-likelihood is off by 0.04–0.15 nats on totals of 0.25–3.75 million, 8–30x pyBKT's
+  stopping tolerance of 0.005. A log-odds state per student fixes the underflow (f32: −801.97864 vs f64:
+  −801.97809), at the cost of a `log` and an `exp` per answer. This applies equally to f32 SIMD on the CPU.
+- **Not enough parallel work.** All of ASSISTments merged is 4,217 student sequences (one 6,154 answers
+  long, the longest 1% holding 17% of answers); a single skill has about 1,000. A GPU needs tens of
+  thousands of independent threads, and each step of a sequence waits on the previous one, so a pass takes
+  at least as long as the longest sequence's serial chain. The CPU kernels already do an ASSISTments pass
+  in about 1.4–2.2 ms on 4 threads.
+- **Estimate, not measured:** only uniform data with hundreds of thousands of short sequences (like the
+  250,000 × 20 synthetic set) would keep a GPU busy. There a pass might drop from about 16 ms (4 CPU
+  threads) to well under 1 ms, saving under a second per fit, against tens of seconds of loading and
+  converting. It pays only when fits repeat many times on resident data (bootstrap, large restart or
+  hyperparameter sweeps) or for models with far more work per answer than BKT's 2 × 2 update.
+
+Conclusion unchanged from the earlier assessment: not planned. If it's ever revisited, CubeCL is the most
+Rust-native route, the kernel must keep a log-odds state, and the dependency trees are large (`wgpu`
+alone: 19,155 `unsafe` lines across 61 crates by the earlier audit).
+
 ## 6. Exact work sharing through prefixes
 
 With forward-only smoothing, students whose histories share a prefix share φ

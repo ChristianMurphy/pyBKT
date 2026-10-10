@@ -1,0 +1,31 @@
+dataset,answers,mode,iterations,stopped_by_tol,final_ll_f64,max_param_diff_vs_f64,ll_diff_vs_f64_fit
+as_all,449220,f64,24,True,-254754.7993,0,0
+as_all,449220,f32,200,False,nan,nan,nan
+as_all,449220,f32+f64sum,200,False,nan,nan,nan
+synth5m,5000000,f64,37,True,-3465734.7839,0,0
+synth5m,5000000,f32,26,True,-3465735.3599,9.9e-04,-0.5760
+synth5m,5000000,f32+f64sum,29,True,-3465734.9483,4.8e-04,-0.1643
+Percent Of,22908,f64,40,True,-10472.1928,0,0
+Percent Of,22908,f32,200,False,nan,nan,nan
+Percent Of,22908,f32+f64sum,200,False,nan,nan,nan
+Addition and Subtraction Integers,22895,f64,16,True,-11475.6882,0,0
+Addition and Subtraction Integers,22895,f32,11,True,-11836.5490,1.6e-01,-360.8608
+Addition and Subtraction Integers,22895,f32+f64sum,11,True,-11836.5431,1.6e-01,-360.8549
+Conversion of Fraction Decimals Percents,20990,f64,19,True,-12611.3928,0,0
+Conversion of Fraction Decimals Percents,20990,f32,200,False,nan,nan,nan
+Conversion of Fraction Decimals Percents,20990,f32+f64sum,200,False,nan,nan,nan
+Volume Rectangular Prism,19489,f64,27,True,-4152.9135,0,0
+Volume Rectangular Prism,19489,f32,200,False,nan,nan,nan
+Volume Rectangular Prism,19489,f32+f64sum,200,False,nan,nan,nan
+Venn Diagram,18275,f64,14,True,-7389.6689,0,0
+Venn Diagram,18275,f32,200,False,nan,nan,nan
+Venn Diagram,18275,f32+f64sum,200,False,nan,nan,nan
+Equation Solving Two or Fewer Steps,17311,f64,25,True,-10475.0664,0,0
+Equation Solving Two or Fewer Steps,17311,f32,25,True,-10475.0664,8.5e-07,-0.0000
+Equation Solving Two or Fewer Steps,17311,f32+f64sum,24,True,-10475.0709,4.7e-04,-0.0045
+Volume Cylinder,13734,f64,8,True,-4068.3129,0,0
+Volume Cylinder,13734,f32,200,False,nan,nan,nan
+Volume Cylinder,13734,f32+f64sum,200,False,nan,nan,nan
+Multiplication and Division Integers,12975,f64,15,True,-6567.8158,0,0
+Multiplication and Division Integers,12975,f32,16,True,-6567.8138,4.9e-06,0.0020
+Multiplication and Division Integers,12975,f32+f64sum,17,True,-6567.8130,7.0e-06,0.0028

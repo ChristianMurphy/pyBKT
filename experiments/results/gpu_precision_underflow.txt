@@ -1,0 +1,3 @@
+Conversion of Fraction Decimals Percents, 992 answers, float64 normalized state: ll -801.97809; P(unknown) exactly 0 from answer None
+Conversion of Fraction Decimals Percents, 992 answers, float32 normalized state: ll -988.10871; P(unknown) exactly 0 from answer 139
+Conversion of Fraction Decimals Percents, 992 answers, float32 log-odds state: ll -801.97864
