@@ -1,0 +1,21 @@
+              runs  total_passes_to_converge  median_passes_to_within_0.005  never_within_0.005
+method                                                                                         
+bfgs            24                      1439                           35.0                   5
+em              24                       936                           17.5                   6
+em5+lbfgs       24                       681                           16.0                   6
+lbfgs           24                       765                           20.0                   5
+lbfgs_scaled    24                      1004                           20.0                   5
+squarem         24                       587                           12.0                   5
+
+new runs farther than 0.005 from their start's best:
+                               skill  seed       method  esteps  gap_to_start_best
+            Volume Rectangular Prism     1         bfgs      75          54.743287
+            Volume Rectangular Prism     1 lbfgs_scaled      39          54.743287
+            Volume Rectangular Prism     2         bfgs      59          54.743287
+            Volume Rectangular Prism     2 lbfgs_scaled      23          54.743287
+                        Venn Diagram     1         bfgs      37        1073.701260
+                        Venn Diagram     1 lbfgs_scaled      16        1073.701260
+                     Volume Cylinder     2         bfgs      37         249.059436
+                     Volume Cylinder     2 lbfgs_scaled      17         249.059436
+Multiplication and Division Integers     0         bfgs      75         466.345326
+Multiplication and Division Integers     0 lbfgs_scaled     112         466.345326

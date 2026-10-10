@@ -660,6 +660,52 @@ BKT+IRT fitter like the one in the JEDM paper described in section 9, or general
 across skills and restarts rather than nest parallelism agrees with section 7's contention measurements
 and with C9.
 
+**Full BFGS and the Rust optimizer crates** (planning round 9, `optimizers.py extra`,
+`results/optimizers_extra.csv`). A second outside analysis suggested full BFGS (a 4 × 4 inverse Hessian)
+in logit space instead of L-BFGS-B, and listed Rust crates for each optimizer. Same skills and starts:
+
+| Method | Median passes to within 0.005 of the start's best | Total passes to converge, 24 runs |
+| --- | --- | --- |
+| SQUAREM | **12** | **587** |
+| EM | 17.5 | 936 |
+| L-BFGS, objective scaled per answer | 20 | 1,004 |
+| Full BFGS, objective scaled per answer | 35 | 1,439 |
+
+BFGS is the slowest gradient method here. Scaling the objective doesn't speed up unconstrained L-BFGS; it
+only prevents the bounded failure above. Every local method misses its start's best on the same 5–6
+multi-optimum starts.
+
+The crates, checked on crates.io and in their 2026-10-10 sources; `unsafe` counted with the earlier audit's
+method over each crate's linked dependency tree (`libc`, 799 lines, is already linked by any pyo3 extension):
+
+| Crate | What it offers | Maturity | Linked crates | `unsafe` lines, own / tree |
+| --- | --- | --- | --- | --- |
+| `lbfgsb-rs-pure` 0.1.2 | L-BFGS-B port | since 2025-11 | 1 | 0 / **0** |
+| `basin` 1.15.1 | ~50 solvers | since 2026-04 | 10 | 0 / 731 |
+| `argmin` 0.11.0 | BFGS, L-BFGS, Nelder–Mead, annealing, PSO, line searches | since 2018, 5.3M downloads | 23 | 0 / 1,760 |
+| `hmmlearn-rs` 1.0.0 | port of Python hmmlearn | published 2026-07-14, 74 downloads | 22 | 0 / 2,593 |
+| `fcmaes-core` 0.1.5 | DE, CMA-ES, dual annealing | since 2026-07, 545 downloads | 37 | 0 / 4,148 |
+| `cmaes` 0.2.2 | CMA-ES | last release 2024-12 | 71 | 0 / 5,702 |
+| `bio` 4.2.1 | forward, backward, Viterbi, Baum-Welch | since 2015 | 87 | 1 / 6,207 |
+
+Two of the analysis's claims need correcting:
+- `bio::stats::hmm::baum_welch` is one Baum-Welch step, but over **one** observation sequence, returning
+  re-estimated (normalized) parameters rather than expected counts. A BKT skill's EM step sums counts over
+  thousands of students, and normalized per-student estimates can't be combined, so it can't drive
+  SQUAREM for BKT as is.
+- Structural zeros aren't the obstacle for a generic HMM: Baum-Welch keeps a zero transition at zero,
+  because its expected count is proportional to the transition probability, so forget = 0 survives fitting.
+  The obstacle is pyBKT's variants: per-template guess/slip (multigs), per-resource learn rates
+  (multilearn), and the missing first observation behind multiprior. A standard categorical HMM can't
+  express them. `hmmlearn-rs` (multi-sequence `fit`, `params`, Dirichlet priors) could serve as an
+  independent check of plain BKT, nothing more.
+
+Agreed with the analysis: a specialized two-state kernel, not a generic HMM, and comparing solvers by
+total data processed. Measured that way, SQUAREM (about 40 lines in `squarem.py`; crates.io has no SQUAREM crate, and the closest, Anderson acceleration in `fixed_point_acceleration` 0.1.0, has 27 downloads) beats
+every library optimizer on standard BKT, so the Rust track needs no optimizer crate. If a bounded
+quasi-Newton fit is ever wanted (for a BKT extension EM can't express), `lbfgsb-rs-pure` adds no
+dependencies and no `unsafe`; Basin is the broader choice at 731 dependency lines.
+
 **Fixed along the way:** `bkt_np.fb_counts` allocated its backward-pass array with `np.empty`; cells past a
 student's last answer were never written, and the emission sums multiplied them by a 0/1 mask, so leftover
 NaN in that memory made the counts NaN. It now uses `np.zeros`. No earlier result was affected: the only NaN

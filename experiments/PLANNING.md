@@ -312,7 +312,7 @@ installed. Does not ask upstream to adopt a Rust toolchain. Proposed only after 
 | Event-level online EM | only alpha = 0.8 stable in our multi-student adaptation | README §2 |
 | GPU backend | no benefit at typical sizes; wgpu best fit if ever needed | README §5 notes, chat |
 | Gradient-based fitter (BKT as a PyTorch RNN) | flexibility for extensions (BKT+IRT), not speed; heavy dependency | README §9 |
-| General-purpose optimizers (L-BFGS, Nelder–Mead, differential evolution, CMA-ES, basin hopping), or the Basin crate for them | SQUAREM needs fewer passes than any of them (median 12 vs L-BFGS 20, DE 1,449); global search finds higher-likelihood but implausible optima; Basin has no EM support and adds 731 dependency `unsafe` lines. Revisit only for a fitter EM can't express | README §10 |
+| General-purpose optimizers (L-BFGS, Nelder–Mead, differential evolution, CMA-ES, basin hopping), or the Basin crate for them | SQUAREM needs fewer passes than any of them (median 12 vs L-BFGS 20, DE 1,449); global search finds higher-likelihood but implausible optima; Basin has no EM support and adds 731 dependency `unsafe` lines. Full BFGS is slower still (median 35 passes). Other crates checked: argmin (1,760 dependency `unsafe` lines), hmmlearn-rs (2,593; can't express multigs/multilearn), bio (6,207; its Baum-Welch step is per sequence), fcmaes-core, cmaes. Revisit only for a fitter EM can't express; `lbfgsb-rs-pure` (no dependencies, no `unsafe`) if a bounded quasi-Newton fit is needed | README §10 |
 | Parallel scan over time (Särkkä & García-Fernández 2021) | would help very long sequences; untested | README §9 |
 | nanobind / pybind11 binding swap | binding overhead isn't the cost; smaller wheels only | `deep_research_summary.md` |
 | Numba / Cython pure-Python path | vectorized NumPy gets 20–40x with no new dependency | ROADMAP alternatives |
@@ -469,6 +469,7 @@ proposal.
 | `nan_user_ids.py` (planning round 4) | missing user ids: silent drop in fit, invalid predictions | B4 |
 | `omp_controlled.sh`/`.py`, `results/omp_controlled.csv`, `results/omp_dynamic.csv` (round 6) | OpenMP calls stall ~8 ms under contention; dynamic scheduling doesn't help | B8, C9; Rust framing |
 | `rust/contention.sh`, `rust/contention_small.py` (round 6) | rayon work stealing avoids the stall on small calls; per-call scoped threads don't; big calls degrade proportionally everywhere | R design (`bkt_lean` + rayon) |
+| `optimizers.py extra` and Rust crate audit (round 9) | full BFGS slower than L-BFGS, EM and SQUAREM; crate maturity and dependency `unsafe` measured; `bio`'s Baum-Welch step is per sequence; generic HMMs can't express pyBKT's variants | not planned (README §10) |
 | `optimizers.py` (round 8) | SQUAREM beats L-BFGS, Nelder–Mead and differential evolution in passes; global optima are often implausible; bounds move fits to the bound; Basin checked (no EM, 731 dependency `unsafe` lines); `bkt_np` NaN bug fixed | D1, D2, D3; not planned |
 | `py_vs_vec_fit.py parallel` (round 6) | vectorized E-step is 20–24x faster than pyBKT's default process pool, 32–40x than serial; the pool costs ~25 ms per iteration | C1 |
 | Remaining upstream issues (round 6) | class-value cluster #29/#45/#47/#50/#52; process pool on Windows #11/#51/#42 | CV, C1 |

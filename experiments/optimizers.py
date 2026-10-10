@@ -14,6 +14,8 @@ so the expected counts S from one forward-backward pass give, in logit coordinat
 
   python optimizers.py check            # gradient self-check on one skill
   python optimizers.py run N [--de]     # N skills with >= 1,000 answers (as in squarem_tol.py); --de adds DE
+  python optimizers.py extra N          # full BFGS and per-answer-scaled L-BFGS, scored against run's results
+  python optimizers.py bounded N        # EM and L-BFGS-B with guess, slip <= 0.5
 Writes results/optimizers.csv (one row per skill x start x method) and prints a summary.
 """
 import sys, time
@@ -72,6 +74,23 @@ def lbfgs_fit(c, p, tol, maxe):
     r = optimize.minimize(f, to_vec(p), jac=True, method="L-BFGS-B",
                           options=dict(maxfun=maxe, ftol=tol / 1e4, gtol=1e-8, maxls=40))
     return to_p(r.x), -r.fun
+
+
+def bfgs_fit(c, p, tol, maxe):
+    """Full BFGS (a 4 x 4 inverse-Hessian estimate) in logit space, objective scaled per answer."""
+    N = float(c.lengths.sum())
+    f = lambda v: tuple(-a / N for a in c.ll_grad(v))
+    r = optimize.minimize(f, to_vec(p), jac=True, method="BFGS", options=dict(maxiter=maxe, gtol=1e-9))
+    return to_p(r.x), -r.fun * N
+
+
+def lbfgs_scaled_fit(c, p, tol, maxe):
+    """L-BFGS as lbfgs_fit, but with the objective scaled per answer (the fix found for the bounded run)."""
+    N = float(c.lengths.sum())
+    f = lambda v: tuple(-a / N for a in c.ll_grad(v))
+    r = optimize.minimize(f, to_vec(p), jac=True, method="L-BFGS-B",
+                          options=dict(maxfun=maxe, ftol=1e-15, gtol=1e-10, maxls=40))
+    return to_p(r.x), -r.fun * N
 
 
 def hybrid_fit(c, p, tol, maxe, em_steps=5):
@@ -200,6 +219,38 @@ def run(n, with_de):
     }).round(4).to_string())
 
 
+def run_extra(n):
+    """BFGS and scaled L-BFGS on the same skills and starts; scored against the per-start best in
+    results/optimizers.csv together with these runs."""
+    ref = pd.read_csv("results/optimizers.csv")
+    rows = []
+    for skill, data, _ in load_skills(n):
+        for seed in range(3):
+            p0 = init_params(seed)
+            for name, fn in (("bfgs", lambda c: bfgs_fit(c, p0, 1e-8, CAP)),
+                             ("lbfgs_scaled", lambda c: lbfgs_scaled_fit(c, p0, 1e-8, CAP))):
+                c = Evals(data)
+                p, ll = fn(c)
+                rows.append(dict(skill=skill, seed=seed, method=name, esteps=c.n, ll=ll, best_seen=max(c.trace),
+                                 trace=c.trace, **{k: p[k] for k in KEYS}))
+        print(skill, file=sys.stderr, flush=True)
+    o = pd.DataFrame(rows)
+    start_best = pd.concat([ref[["skill", "seed", "best_seen"]], o[["skill", "seed", "best_seen"]]]
+                           ).groupby(["skill", "seed"]).best_seen.max()
+    o["start_best"] = [start_best[(a, b)] for a, b in zip(o.skill, o.seed)]
+    o["to_start_best_0.005"] = [first_within(t, b, 0.005) for t, b in zip(o.trace, o.start_best)]
+    o["gap_to_start_best"] = o.start_best - o.best_seen
+    o.drop(columns="trace").to_csv("results/optimizers_extra.csv", index=False)
+    old = ref[ref.method.isin(["em", "squarem", "lbfgs", "em5+lbfgs"])]
+    both = pd.concat([old[["method", "esteps", "to_start_best_0.005"]], o[["method", "esteps", "to_start_best_0.005"]]])
+    g = both.groupby("method")
+    print(pd.DataFrame({"runs": g.size(), "total_passes_to_converge": g.esteps.sum(),
+                        "median_passes_to_within_0.005": g["to_start_best_0.005"].median(),
+                        "never_within_0.005": g["to_start_best_0.005"].apply(lambda s: int(s.isna().sum()))}).to_string())
+    print("\nnew runs farther than 0.005 from their start's best:")
+    print(o[o.gap_to_start_best > 0.005][["skill", "seed", "method", "esteps", "gap_to_start_best"]].to_string(index=False))
+
+
 def run_bounded(n):
     """Same skills and starts as run(): EM and L-BFGS with guess, slip <= 0.5. Compared against the unconstrained
     rows in results/optimizers.csv (run that first)."""
@@ -229,6 +280,8 @@ def run_bounded(n):
 if __name__ == "__main__":
     if sys.argv[1] == "check":
         check_gradient()
+    elif sys.argv[1] == "extra":
+        run_extra(int(sys.argv[2]))
     elif sys.argv[1] == "bounded":
         run_bounded(int(sys.argv[2]))
     else:
