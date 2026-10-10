@@ -656,7 +656,7 @@ guess, slip ≤ 0.5, and EM with the same bound applied after each M-step.
 Basin is a sound general optimizer, but pyBKT's fitting doesn't need one: EM with SQUAREM is faster in the
 measure that matters, needs no tuning, and adds nothing to the dependency tree. Basin would earn its 731
 dependency `unsafe` lines only if pyBKT added a fitter that EM can't express, for example a gradient-based
-BKT+IRT variant like Khajah's (section 9) or general constrained fits. The pasted advice to parallelize
+BKT+IRT fitter like the one in the JEDM paper described in section 9, or general constrained fits. The pasted advice to parallelize
 across skills and restarts rather than nest parallelism agrees with section 7's contention measurements
 and with C9.
 
