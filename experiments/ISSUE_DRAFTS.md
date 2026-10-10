@@ -380,7 +380,9 @@ predictions that fall back to 0.5. Cite Pardos & Heffernan 2010 and Beck & Chang
 ### 14. New issue: optional estimators (priors, SQUAREM, online EM)
 Opt-in only. Beta priors (Beck & Chang 2007): fits stuck at 0/1 go from 15.3% to 0% on 48 skills, held-out
 log-likelihood slightly better on average. SQUAREM (Varadhan & Roland 2008): 1.4–1.7x fewer EM steps,
-never a worse fit in 48 runs. Online EM (Cappé & Moulines 2009), experimental: one pass within 0.0016 of
+never a worse fit in 48 runs; it also needed fewer passes than L-BFGS, Nelder–Mead or differential evolution
+on 8 skills. Global search found higher-likelihood but implausible optima (guess > 0.5) on 4 of 8 skills,
+which is the case for priors rather than a stronger optimizer. Online EM (Cappé & Moulines 2009), experimental: one pass within 0.0016 of
 the true parameters (batch 0.0013), and what today's `partial_fit` does. Ask which, if any, belong in
 pyBKT and where docs should live (README section, notebook).
 

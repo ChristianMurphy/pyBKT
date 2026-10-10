@@ -56,6 +56,9 @@ python load_bench.py make-synth 20000000 && python load_bench.py all ../data/syn
 python e2e_pybkt.py ../data/as.csv 1 0      # sec 7  (args: file, num_fits, parallel)
 python omp_overhead.py                      # sec 7
 python live_bench.py                        # sec 8
+python optimizers.py check                  # sec 10, gradient from counts vs finite differences
+python optimizers.py run 8 --de             # sec 10, EM / SQUAREM / L-BFGS / Nelder-Mead / DE (about 35 min)
+python optimizers.py bounded 8              # sec 10, guess and slip bounded at 0.5
 # Rust: see rust/REPORT.md
 ```
 
@@ -582,6 +585,87 @@ binding benchmarks: a binding swap gives smaller, faster-building wheels, not
 faster fitting. The proxy blocked most academic sources, so its claims about
 algorithms and numerics did not reach verification.
 
+## 10. Which optimizer, and would Basin help? (`optimizers.py`, planning round 8)
+
+pyBKT fits each skill by EM: a forward-backward pass gives expected counts, and the M-step turns them into
+new parameters in closed form. The question was whether a general-purpose optimizer (for example from
+the Rust library Basin) would fit faster or better.
+
+**Setup.** The 8 largest ASSISTments skills (13k–23k answers each), 3 random starts each, pyBKT's
+starting distribution. Every method pays one E-step pass per likelihood evaluation, so cost is counted in
+passes, which carries over to any language; an optimizer's own bookkeeping (microseconds) is negligible
+next to a pass (about 1 ms in C++, 12–190 ms in NumPy on these skills; skills with long histories cost most). The kernel is `np_estep.estep`
+(C1's candidate), checked against `bkt_np.fb_counts` to 6.6e-15.
+
+**The gradient is free.** By Fisher's identity, the log-likelihood's gradient equals the gradient of EM's
+expected complete-data log-likelihood at the current parameters, so the expected counts from one pass
+give it directly (formulas in `optimizers.py`; matches finite differences to 2e-7). Gradient methods need
+no second pass: "fusing likelihood and gradient" is what the E-step already does.
+
+| Method | Median passes to within 0.005 of the start's best | Total passes, 24 runs to tol 1e-8 | Runs at the skill's best (±0.005) |
+| --- | --- | --- | --- |
+| SQUAREM (D3) | **12** | **587** | 17 of 24 |
+| 5 EM steps, then L-BFGS | 16 | 681 | 16 of 24 |
+| EM (pyBKT today) | 17.5 | 936 | 16 of 24 |
+| L-BFGS (logit space, analytic gradient) | 20 | 765 | 17 of 24 |
+| Nelder–Mead | 209 | 11,342 | 21 of 24 |
+| Differential evolution, 40 candidates (1 start per skill) | 1,449 | 16,000 (all hit the 2,000 cap) | 5 of 8 |
+
+- **Local methods agree.** From the same start, EM, SQUAREM, L-BFGS and Nelder–Mead reach the same optimum.
+  Which optimum depends on the start: 4 of the 8 skills have more than one.
+- **SQUAREM stays the fastest** local method; L-BFGS isn't faster than EM at pyBKT's tolerance.
+- **Global search finds higher likelihood that is usually implausible.** On 4 of 8 skills the best
+  log-likelihood found by any method has guess > 0.5. On Venn Diagram the plausible optimum (guess 0.075,
+  slip 0.132) is 1,074 nats worse than the implausible one (guess 0.583, slip 0.000). On Multiplication and
+  Division Integers, differential evolution's 466-nat "improvement" over EM is the implausible guess 0.513
+  solution; EM's (guess 0.000, slip 0.216) is the plausible one. This is the identifiability problem Beck &
+  Chang (2007) describe, seen from the optimizer side.
+
+**Constraints instead of priors** (`optimizers.py bounded`, `results/optimizers_bounded.csv`): L-BFGS-B with
+guess, slip ≤ 0.5, and EM with the same bound applied after each M-step.
+
+- Where the data favour an implausible solution (Percent Of, Volume Rectangular Prism, one start on Venn
+  Diagram), both stop exactly at guess = 0.500 with slip ≈ 0 and learn 0.004–0.02: the bound relabels the
+  degenerate fit rather than fixing it. Elsewhere they reproduce EM's plausible optimum.
+- One bounded L-BFGS-B run stopped at its start after 3 passes, 1,174 nats short, because the summed
+  log-likelihood (gradient entries in the hundreds) was badly scaled for its first step; dividing the
+  objective by the number of answers fixed it (17 passes). EM has no such knobs.
+
+**Conclusions.**
+1. For speed, keep EM and add SQUAREM (D3); about 20 lines, no dependency. A general-purpose local optimizer
+   doesn't beat it in passes.
+2. For quality, the objective is the problem, not the optimizer: maximizing BKT's likelihood harder lands
+   on degenerate solutions. Priors (D2: stuck-at-0/1 fits 15.3% → 0%) address that; a fit sitting on a
+   plausibility bound is a useful warning (D1).
+3. Global optimizers (differential evolution, CMA-ES, basin hopping) only make sense together with priors
+   or plausibility constraints, and cost 50–80x the passes of EM. Not planned.
+
+**Basin itself** (checked 2026-10-10 against crates.io and the 1.15.1 source):
+
+| Claim | Checked | Result |
+| --- | --- | --- |
+| Basin 1.15.1, pure Rust, MIT or Apache-2.0 | crates.io, source | yes; first release 2026-04-30; minimum Rust 1.87; about 89k lines of source |
+| No explicit SIMD | source | none (`std::arch`, `target_feature`, portable SIMD absent) |
+| Optional rayon; batch evaluation keeps candidate order | `src/core/parallel.rs`, `problem.rs` | yes (`into_par_iter().map_init(...).collect()`) |
+| Paper, August 2026 | README | arXiv:2608.11279, 2026-08-11 |
+| AI-assisted development | repository | consistent: it ships `AGENTS.md` and `CLAUDE.md` |
+| Speedups over argmin (Nelder–Mead ~4x, L-BFGS ~2.4x) | README | not found there; unverified |
+| `unsafe` | the earlier audit's counting method | none in Basin's own code (not enforced by `forbid`); 731 lines in its default dependencies (zerocopy 490, ppv-lite86 168, libm 56, rand 16, num-traits 1); 397 more with `parallel` (rayon, crossbeam), which the planned Rust design already includes |
+| EM or EM acceleration | solver list | none: about 50 solvers (L-BFGS, BFGS, Nelder–Mead, differential evolution, CMA-ES, basin hopping, BOBYQA, SLSQP, trust region, …), no EM, SQUAREM or Anderson acceleration |
+
+Basin is a sound general optimizer, but pyBKT's fitting doesn't need one: EM with SQUAREM is faster in the
+measure that matters, needs no tuning, and adds nothing to the dependency tree. Basin would earn its 731
+dependency `unsafe` lines only if pyBKT added a fitter that EM can't express, for example a gradient-based
+BKT+IRT variant like Khajah's (section 9) or general constrained fits. The pasted advice to parallelize
+across skills and restarts rather than nest parallelism agrees with section 7's contention measurements
+and with C9.
+
+**Fixed along the way:** `bkt_np.fb_counts` allocated its backward-pass array with `np.empty`; cells past a
+student's last answer were never written, and the emission sums multiplied them by a 0/1 mask, so leftover
+NaN in that memory made the counts NaN. It now uses `np.zeros`. No earlier result was affected: the only NaN
+cells in `results/` are blank-by-design columns (`compare_em.csv`'s `state_floats_per_student`,
+`map_em_merged.csv`'s `failed`).
+
 ## Papers
 
 All five papers this section used to ask for were uploaded by the owner and read in full, and the
@@ -596,7 +680,9 @@ listings: Hawkins et al. (2014) and the other [V-index] items in `online_bkt_lit
 `check_smoothing.py` · `compare_em.py` · `compare_online.py` · `synth_discount.py` ·
 `cappe_moulines.py` · `cm_real.py` · `squarem.py` · `np_estep.py` · `dedup.py` ·
 `make_fixture.py` · `load_bench.py` · `e2e_pybkt.py` · `omp_overhead.py` ·
-`live_bench.py` · `conv_mem.py` · `fetch_data.sh` · `results/*.csv` ·
+`live_bench.py` · `conv_mem.py` · `optimizers.py` · `omp_controlled.sh` · bug repros
+(`integer_loglike.py`, `regex_skill_names.py`, `nan_user_ids.py`, `tied_order_ids.py`) ·
+`fetch_data.sh` · `results/*.csv` · planning (`HANDOFF.md`, `ISSUE_DRAFTS.md`, `PLANNING.md`) ·
 `online_bkt_literature.md` · `deep_research_summary.md` · `rust/` (source,
 scripts, results, `REPORT.md`; no build output)
 

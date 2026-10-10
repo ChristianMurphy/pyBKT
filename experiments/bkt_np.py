@@ -80,7 +80,9 @@ def fb_counts(Y, lengths, p, per_student=False):
     #   xi_t(i, j) = alpha_t(i) A(i, j) gamma_{t+1}(j) / (alpha_t A)(j),   gamma_t(i) = sum_j xi_t(i, j)
     Sx = np.zeros((n, D))
     last = lengths - 1
-    gamma = np.empty((n, L, 2))
+    # zeros, not np.empty: cells past a student's last answer are never written, and the emission sums below
+    # multiply them by a 0/1 mask, so leftover NaN or inf in uninitialized memory would turn the counts into NaN.
+    gamma = np.zeros((n, L, 2))
     gamma[np.arange(n), last] = alpha[np.arange(n), last]
     for t in range(L - 2, -1, -1):
         v = t < last                                  # students whose sequence continues past t

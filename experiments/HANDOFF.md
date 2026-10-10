@@ -382,9 +382,9 @@ carries the measurements
 | C8 | convert once (prepared data); stop sorting the caller's DataFrame in place | `lean_gap.py` | per-call copies cost ~40% of a fast E-step | `fit` reorders the caller's DataFrame today |
 | C9 | all `num_fits` restarts in one pass; skills in parallel (the rest of the old C5) | ROADMAP, `results/omp_controlled.csv` | `num_fits=5` takes 4.3x one fit; one parallel region across skills amortizes the 8 ms barrier stall | keep random draws in today's order |
 | C6 | sparse multigs, 64-bit indices | ROADMAP | 1.47 GB → ~2 MB (all ASSISTments skills merged) | |
-| D1 | fit diagnostics (warnings) | `degeneracy_audit.py` | 9.1% implausible, 11.8% at 0/1, 74 of 110 skills' restarts disagree | addresses #45 and the #21/#27/#36/#38 pattern |
-| D2 | Beta priors, `priors=` | `map_em.py`; Beck & Chang 2007 | stuck at 0/1: 15.3% → 0%; held-out ll slightly better | defaults need choosing |
-| D3 | SQUAREM, `accelerate=` | `squarem.py`; Varadhan & Roland 2008 | 1.4–1.7x fewer E-steps; never worse in 48 runs | needs step cap and monotone guard |
+| D1 | fit diagnostics (warnings) | `degeneracy_audit.py` | 9.1% implausible, 11.8% at 0/1, 74 of 110 skills' restarts disagree | addresses #45 and the #21/#27/#36/#38 pattern; also warn when a fit sits on a plausibility bound (`optimizers.py bounded`: bounded fits stop at guess = 0.500 when the data favour a degenerate solution) |
+| D2 | Beta priors, `priors=` | `map_em.py`; Beck & Chang 2007 | stuck at 0/1: 15.3% → 0%; held-out ll slightly better | defaults need choosing; global optimizers find higher-likelihood but implausible optima on 4 of 8 skills (`optimizers.py`), so the objective needs priors, not a stronger optimizer |
+| D3 | SQUAREM, `accelerate=` | `squarem.py`; Varadhan & Roland 2008 | 1.4–1.7x fewer E-steps; never worse in 48 runs | needs step cap and monotone guard; re-checked against L-BFGS, Nelder–Mead and differential evolution: SQUAREM needs the fewest passes (median 12 vs EM 17.5, L-BFGS 20) |
 | E2 | DuckDB loader extra | `duckdb_convert.py` | 20M rows read + convert 14.3 s vs 60.8 s | optional dependency |
 | E3 | exact out-of-core EM | `check_smoothing.py`; Cappé 2011 | equals forward-backward to 2.5e-16 | |
 | E4 | online EM (experimental) + `partial_fit` docs | `online_em.py`, `cappe_moulines.py`; Cappé & Moulines 2009 | one pass within 0.0016 of truth (batch 0.0013) | event-level variant not planned |
@@ -500,6 +500,7 @@ Every experiment, what it answered, and where it went. "Open" marks threads nobo
 | `live_bench.py` | Exact O(1) live updates? | 2.4 µs per answer, matches `predict` to 1.6e-9; found the regex and tie bugs | E1, B2, B3 |
 | Rust `bkt_rs`, `bkt_lean`, `rayon_simd.py`, `lean_gap.py`, `lean_fit_check.py`, audits | Is a safe Rust E-step worth it? | Bit-identical serial, 2.1–2.5x; 10–39x with SIMD and threads; per-call copy ~40%; dependency `unsafe` counted | R; **open:** a global length-sorted chunk plan for SIMD lanes |
 | GPU assessment (wgpu, vulkano, cuda-rust) | Would a GPU help? | Not at typical sizes | not planned |
+| `optimizers.py` (round 8) | Would another optimizer, or the Rust library Basin, fit faster or better? | SQUAREM fastest (median 12 passes vs EM 17.5, L-BFGS 20, Nelder–Mead 209, differential evolution 1,449); local methods agree from the same start; global search finds higher-likelihood, implausible optima (4 of 8 skills); bounds just move the fit to the bound. Basin: sound, no EM support, 731 `unsafe` lines in default dependencies | D3, D1, D2; Basin and global optimizers not planned |
 | Phase 1 branch, `bench.py`, golden checks | Crash, leak, predict, convert | Fixed and faster, bit-identical | B1, C2, C3 |
 | Repros (`integer_loglike.py`, `regex_skill_names.py`, `nan_user_ids.py`, `tied_order_ids.py`) | Do the bugs reproduce on small data? | Yes, in seconds | B5, B2, B4, B3 |
 | `upstream_sync_check.sh` | Do the fork branches still fit upstream? | Clean merges; only obsolete markers fail | A2 |
