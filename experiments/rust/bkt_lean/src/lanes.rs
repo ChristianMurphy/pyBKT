@@ -142,6 +142,99 @@ impl<const L: usize> LaneOps for Plain<L> {
     }
 }
 
+/// Plain arrays written for the autovectorizer: masks are full-width u64 lanes (all ones or zero) and
+/// selects are bitwise blends, the shape SIMD hardware uses, instead of `[bool; L]` with `if`.
+#[derive(Clone, Copy)]
+pub struct Blend<const L: usize>;
+
+#[inline(always)]
+fn lane_mask(b: bool) -> u64 {
+    0u64.wrapping_sub(b as u64)
+}
+
+impl<const L: usize> LaneOps for Blend<L> {
+    const L: usize = L;
+    type V = [f64; L];
+    type U = [u64; L];
+    type M = [u64; L];
+    #[inline(always)]
+    fn splat(self, x: f64) -> [f64; L] {
+        [x; L]
+    }
+    #[inline(always)]
+    fn load(self, s: &[f64]) -> [f64; L] {
+        std::array::from_fn(|i| s[i])
+    }
+    #[inline(always)]
+    fn store(self, v: [f64; L], s: &mut [f64]) {
+        s[..L].copy_from_slice(&v)
+    }
+    #[inline(always)]
+    fn add(self, a: [f64; L], b: [f64; L]) -> [f64; L] {
+        std::array::from_fn(|i| a[i] + b[i])
+    }
+    #[inline(always)]
+    fn mul(self, a: [f64; L], b: [f64; L]) -> [f64; L] {
+        std::array::from_fn(|i| a[i] * b[i])
+    }
+    #[inline(always)]
+    fn div(self, a: [f64; L], b: [f64; L]) -> [f64; L] {
+        std::array::from_fn(|i| a[i] / b[i])
+    }
+    #[inline(always)]
+    fn lt(self, a: [f64; L], b: [f64; L]) -> [u64; L] {
+        std::array::from_fn(|i| lane_mask(a[i] < b[i]))
+    }
+    #[inline(always)]
+    fn eq(self, a: [f64; L], b: [f64; L]) -> [u64; L] {
+        std::array::from_fn(|i| lane_mask(a[i] == b[i]))
+    }
+    #[inline(always)]
+    fn ge(self, a: [f64; L], b: [f64; L]) -> [u64; L] {
+        std::array::from_fn(|i| lane_mask(a[i] >= b[i]))
+    }
+    #[inline(always)]
+    fn sel(self, m: [u64; L], a: [f64; L], b: [f64; L]) -> [f64; L] {
+        std::array::from_fn(|i| f64::from_bits((a[i].to_bits() & m[i]) | (b[i].to_bits() & !m[i])))
+    }
+    #[inline(always)]
+    fn bits(self, v: [f64; L]) -> [u64; L] {
+        v.map(f64::to_bits)
+    }
+    #[inline(always)]
+    fn f64_from_bits(self, u: [u64; L]) -> [f64; L] {
+        u.map(f64::from_bits)
+    }
+    #[inline(always)]
+    fn uand(self, a: [u64; L], k: u64) -> [u64; L] {
+        a.map(|x| x & k)
+    }
+    #[inline(always)]
+    fn uor(self, a: [u64; L], k: u64) -> [u64; L] {
+        a.map(|x| x | k)
+    }
+    #[inline(always)]
+    fn ushr52(self, a: [u64; L]) -> [u64; L] {
+        a.map(|x| x >> 52)
+    }
+    #[inline(always)]
+    fn uadd(self, a: [u64; L], b: [u64; L]) -> [u64; L] {
+        std::array::from_fn(|i| a[i].wrapping_add(b[i]))
+    }
+    #[inline(always)]
+    fn usel(self, m: [u64; L], a: [u64; L], b: [u64; L]) -> [u64; L] {
+        std::array::from_fn(|i| (a[i] & m[i]) | (b[i] & !m[i]))
+    }
+    #[inline(always)]
+    fn usplat(self, x: u64) -> [u64; L] {
+        [x; L]
+    }
+    #[inline(always)]
+    fn ustore(self, u: [u64; L], s: &mut [u64]) {
+        s[..L].copy_from_slice(&u)
+    }
+}
+
 #[cfg(feature = "simd")]
 macro_rules! fearless_ops {
     ($name:ident, $l:expr, $fv:ident, $uv:ident, $mv:ident) => {
@@ -500,6 +593,14 @@ pub fn lanes_kernel<O: LaneOps, D: Obs, R: Res, const R1: bool>(
 pub enum LaneImpl {
     /// plain arrays, compiled for the build's baseline target only (no dependency)
     Plain,
+    /// plain arrays with u64 lane masks and bitwise blends, baseline target only (no dependency)
+    Blend,
+    /// `Plain` compiled inside fearless_simd's runtime dispatch, so LLVM may use AVX2/AVX-512 (feature "simd")
+    #[cfg(feature = "simd")]
+    PlainDispatch,
+    /// `Blend` inside the runtime dispatch (feature "simd")
+    #[cfg(feature = "simd")]
+    BlendDispatch,
     /// explicit fearless_simd vectors with runtime ISA dispatch (feature "simd")
     #[cfg(feature = "simd")]
     Fearless,
@@ -540,6 +641,23 @@ pub fn run_chunk<D: Obs, R: Res>(
             4 => kern(Plain::<4>, inp, m, seqs, c, emit, sc),
             _ => kern(Plain::<8>, inp, m, seqs, c, emit, sc),
         },
+        LaneImpl::Blend => match lanes {
+            2 => kern(Blend::<2>, inp, m, seqs, c, emit, sc),
+            4 => kern(Blend::<4>, inp, m, seqs, c, emit, sc),
+            _ => kern(Blend::<8>, inp, m, seqs, c, emit, sc),
+        },
+        #[cfg(feature = "simd")]
+        LaneImpl::PlainDispatch => dispatch!(level(), _simd => match lanes {
+            2 => kern(Plain::<2>, inp, m, seqs, c, emit, sc),
+            4 => kern(Plain::<4>, inp, m, seqs, c, emit, sc),
+            _ => kern(Plain::<8>, inp, m, seqs, c, emit, sc),
+        }),
+        #[cfg(feature = "simd")]
+        LaneImpl::BlendDispatch => dispatch!(level(), _simd => match lanes {
+            2 => kern(Blend::<2>, inp, m, seqs, c, emit, sc),
+            4 => kern(Blend::<4>, inp, m, seqs, c, emit, sc),
+            _ => kern(Blend::<8>, inp, m, seqs, c, emit, sc),
+        }),
         #[cfg(feature = "simd")]
         LaneImpl::Fearless => dispatch!(level(), simd => match lanes {
             2 => kern(Fs2(simd), inp, m, seqs, c, emit, sc),

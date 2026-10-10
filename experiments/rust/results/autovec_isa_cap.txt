@@ -1,0 +1,8 @@
+autovec.py synth5m lean_simd <impl> 8 1 5, with the runtime dispatch capped by BKT_RS_ISA (2026-10-10, Cascade Lake host)
+fixture,build,impl,lanes,threads,median_ns,min_ns,max_rel_diff_vs_exact
+ISA cap sse2: synth5m,lean_simd,plain_dispatch,8,1,16.55,16.44,5.9e-12
+ISA cap sse2: synth5m,lean_simd,blend_dispatch,8,1,17.78,17.61,5.9e-12
+ISA cap sse2: synth5m,lean_simd,fearless,8,1,12.21,11.40,5.9e-12
+ISA cap avx2: synth5m,lean_simd,plain_dispatch,8,1,18.53,16.06,5.9e-12
+ISA cap avx2: synth5m,lean_simd,blend_dispatch,8,1,14.80,14.70,5.9e-12
+ISA cap avx2: synth5m,lean_simd,fearless,8,1,7.56,7.43,5.9e-12

@@ -361,9 +361,15 @@ fn dispatch_call(
 fn parse_opts(threads: usize, chunk: usize, lanes: usize, lane_impl: &str) -> PyResult<Opts> {
     let imp = match lane_impl {
         "plain" => LaneImpl::Plain,
+        "blend" => LaneImpl::Blend,
+        #[cfg(feature = "simd")]
+        "plain_dispatch" => LaneImpl::PlainDispatch,
+        #[cfg(feature = "simd")]
+        "blend_dispatch" => LaneImpl::BlendDispatch,
         #[cfg(feature = "simd")]
         "fearless" => LaneImpl::Fearless,
-        _ => return Err(PyValueError::new_err("lane_impl must be 'plain' (or 'fearless' with the simd feature)")),
+        _ => return Err(PyValueError::new_err(
+            "lane_impl must be 'plain' or 'blend' (or 'plain_dispatch', 'blend_dispatch', 'fearless' with the simd feature)")),
     };
     Ok(Opts { threads, chunk, lanes, imp })
 }

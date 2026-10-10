@@ -375,6 +375,13 @@ The remaining gap at 64k on ASSISTments (2.42 vs 2.08) comes from about 7 chunks
 within run-to-run noise. Conclusion: rayon is not needed for speed in flat workloads. What it still
 adds is nested parallelism (skills × restarts × chunks).
 
+**Explicit SIMD or autovectorization?** (round 10, `rust/REPORT.md`, "Explicit SIMD or autovectorization?").
+Laying students side by side in plain arrays lets LLVM's autovectorizer take the scalar kernel from 23–25 to
+16–17 ns per answer in a portable build. Explicit SIMD (`fearless_simd`) reaches 7.7–8.8 ns on the same
+machine, 1.4–2x more per core, and that held on both CPUs measured; even capped at SSE2 it beats the
+autovectorized code at AVX2. Rewriting the lane masks as bitwise blends didn't close the gap. Plan: plain
+lanes by default (no dependency), explicit SIMD as an optional feature or wheel.
+
 ## 6. Exact work sharing through prefixes
 
 With forward-only smoothing, students whose histories share a prefix share φ

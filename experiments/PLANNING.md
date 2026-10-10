@@ -469,6 +469,7 @@ proposal.
 | `nan_user_ids.py` (planning round 4) | missing user ids: silent drop in fit, invalid predictions | B4 |
 | `omp_controlled.sh`/`.py`, `results/omp_controlled.csv`, `results/omp_dynamic.csv` (round 6) | OpenMP calls stall ~8 ms under contention; dynamic scheduling doesn't help | B8, C9; Rust framing |
 | `rust/contention.sh`, `rust/contention_small.py` (round 6) | rayon work stealing avoids the stall on small calls; per-call scoped threads don't; big calls degrade proportionally everywhere | R design (`bkt_lean` + rayon) |
+| `rust/autovec.sh` (round 10) | autovectorized lanes get 1.4–1.5x over scalar portably; explicit SIMD 1.4–2x more per core (1.3–1.6x with 4 threads); bitwise-blend masks don't close the gap | Track R: plain lanes by default, `fearless_simd` optional |
 | `optimizers.py extra` and Rust crate audit (round 9) | full BFGS slower than L-BFGS, EM and SQUAREM; crate maturity and dependency `unsafe` measured; `bio`'s Baum-Welch step is per sequence; generic HMMs can't express pyBKT's variants | not planned (README §10) |
 | `optimizers.py` (round 8) | SQUAREM beats L-BFGS, Nelder–Mead and differential evolution in passes; global optima are often implausible; bounds move fits to the bound; Basin checked (no EM, 731 dependency `unsafe` lines); `bkt_np` NaN bug fixed | D1, D2, D3; not planned |
 | `py_vs_vec_fit.py parallel` (round 6) | vectorized E-step is 20–24x faster than pyBKT's default process pool, 32–40x than serial; the pool costs ~25 ms per iteration | C1 |

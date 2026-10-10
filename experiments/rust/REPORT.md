@@ -685,6 +685,62 @@ ns/attempt = min over 3 rounds x 9 runs (max/min of per-round mins). Minor page 
    * Scoped threads cost about 50-400 µs per call when they actually spawn. The fixed chunk plan avoids that for inputs under one chunk (65,536 attempts). A persistent std-only worker pool would remove it for mid-size inputs too; not done.
    * bkt_lean serial spends about 1.5 µs more than bkt_rs on argument handling: buffer format probing (i8 → i32 → i64) and list conversions.
 
+## Explicit SIMD or autovectorization? (planning round 10, `autovec.sh`, `results/autovec.csv`)
+
+Question: does the SIMD-across-students kernel need explicit SIMD (`fearless_simd`), or does LLVM's
+autovectorizer get the same speed from plain arrays? Five builds of the same `lanes_kernel`, all safe Rust:
+
+* `plain`: `[f64; L]` arrays with `[bool; L]` masks and `if` selects, compiled for the baseline (SSE2).
+* `blend`: new for this test. `[f64; L]` arrays with u64 all-ones/zero masks and bitwise blends, the shape
+  vector hardware uses, also baseline. It tests whether the masks were what stopped the vectorizer.
+* `plain_dispatch`, `blend_dispatch`: the same code compiled inside `fearless_simd::dispatch!`, so LLVM may
+  use AVX2 or AVX-512 in a portable wheel (feature `simd`).
+* `fearless`: explicit `f64x2/x4/x8` vectors with runtime dispatch (feature `simd`).
+* `plain`, `blend` from a `-C target-cpu=native` build: not portable; the autovectorizer's ceiling here.
+
+Host for this run: a different VM from Part 1, an Intel Xeon @ 2.80 GHz, family 6 model 85 (Cascade
+Lake). It has AVX-512F/BW/DQ/VL, but `fearless_simd`'s dispatch picks **AVX2** here, so the dispatched
+rows compare code generation at the same ISA. Load average under 1. Every variant matches the exact
+serial kernel to 6e-12.
+
+Median ns per answer (L is the better of 4 and 8 for each row; full grid in the CSV):
+
+| Kernel | as_all, 1 thread | synth5m, 1 thread | as_all, 4 threads | synth5m, 4 threads |
+| --- | --- | --- | --- | --- |
+| exact scalar, one student at a time | 24.7 | 23.1 | 12.0 | 7.0 |
+| `plain`, portable (SSE2) | 17.3 | 15.7 | 9.4 | 4.8 |
+| `blend`, portable (SSE2) | 16.9 | 16.0 | 7.5 | 5.3 |
+| `plain_dispatch` / `blend_dispatch` (AVX2) | 17.4 / 17.7 | 16.0 / 14.6 | 7.9 / 8.1 | 5.8 / 5.1 |
+| `plain` / `blend`, `target-cpu=native` (not portable) | 12.2 / 13.4 | 13.0 / 12.1 | 7.4 / 6.6 | 4.2 / 4.5 |
+| `fearless`, explicit SIMD (AVX2) | **8.8** | **7.7** | **4.9** | **3.2** |
+
+Dispatch check (`results/autovec_isa_cap.txt`, synth5m, L = 8, 1 thread): capping the dispatch at SSE2
+instead of AVX2 moves `blend_dispatch` from 14.8 to 17.8 ns and `fearless` from 7.6 to 12.2 ns, so the
+dispatch does reach the kernel. `plain_dispatch` gains nothing. Explicit SIMD capped at SSE2 (12.2 ns) is
+still faster than the best autovectorized code at AVX2 (14.8 ns).
+
+Findings:
+* **Restructuring is the first win, and the autovectorizer delivers some of it.** Laying 4–8 students side
+  by side takes the scalar kernel from 23–25 ns to 16–17 ns portable (1.4–1.5x) with plain arrays and no
+  dependency, or 12–13 ns with a non-portable native build.
+* **Explicit SIMD adds 1.4–2x per core on top**, on both CPUs measured: here 7.7–8.8 ns against 12–17 ns;
+  in Part 1 (Sapphire Rapids, AVX-512) 5.2–6.3 ns against 8.9–13 ns. A wider ISA alone doesn't explain it,
+  since explicit SIMD at SSE2 beats autovectorized code at AVX2.
+* **The masks weren't the obstacle.** Full-width blends (`blend`) are within noise of `plain`. What else
+  keeps LLVM from vectorizing the lane loop fully (per-lane loads of each student's next answer, the
+  divides, the exponent bit manipulation) wasn't isolated; the next step would be reading the generated
+  assembly.
+* **With 4 threads the gap narrows** to about 1.3–1.6x (`fearless` 3.2–4.9 ns against 4.2–7.5 ns for the
+  best autovectorized builds), though 4-thread numbers on this shared VM are less stable.
+* **Cost of explicit SIMD:** one dependency (`fearless_simd`, 103 `unsafe` lines by the Part 2 audit),
+  minimum Rust 1.89 instead of 1.83, and code duplicated per ISA (this test's `lean_simd` `.so` is 20 MB
+  with the extra dispatched variants; the shipped Part 2 build was 9.6 MB, against 3.0 MB without SIMD).
+
+**Answer:** autovectorization gets part of the way, not the same result. Start with the restructured
+lanes and plain arrays, which need no dependency and are portable. Offer explicit SIMD as an optional
+feature or a separate wheel for the extra 1.4–2x per core, as Part 2 already suggested. The `blend`
+variant didn't earn its place and needn't ship.
+
 ## Replicate Part 2
 
 ```sh
