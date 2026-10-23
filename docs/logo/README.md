@@ -1,6 +1,6 @@
 # A logo for pyBKT
 
-pyBKT doesn't have a logo yet. The CAHLR GitHub organization still shows the default avatar, so the project has no mark of its own on GitHub, PyPI or conference slides. This folder has four candidate directions to start that conversation.
+pyBKT doesn't have a logo yet. The CAHLR GitHub organization still shows the default avatar, so the project has no mark of its own on GitHub, PyPI or conference slides. This folder has four candidate directions to start that conversation. They were mocked up quickly with Claude, so treat them as sketches rather than finished designs.
 
 ![The four options side by side](png/overview.png)
 
