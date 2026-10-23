@@ -1,0 +1,146 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000">
+<rect width="1600" height="1000" fill="#E9EDF3"/>
+<text x="40" y="46" font-family="Inter, Helvetica, Arial, sans-serif" font-size="26" font-weight="700" fill="#002676" text-anchor="start" >D · bkt ligature</text>
+<text x="40" y="92" font-family="Inter, Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#2E4A73" text-anchor="start" >README / docs header · light mode</text>
+<rect x="40" y="104" width="560" height="170" rx="12" fill="#FFFFFF"/>
+<g transform="translate(66 129) scale(0.6)"><g transform="translate(-10 0)">
+<path d="M40 100 L66 100 A33 33 0 0 1 66 166 L40 166 Z" fill="#FDB515"/>
+<path d="M40 30 L40 166 M40 100 L66 100 A33 33 0 0 1 66 166 L40 166 M99 30 L99 166 M104 135 L139 100 L180 100 M115 124 L141 166 M160 30 L160 150 Q160 166 176 166" fill="none" stroke="#002676" stroke-width="16" stroke-linecap="square" stroke-linejoin="miter"/>
+</g></g>
+<text x="206" y="216" font-family="Inter, Helvetica, Arial, sans-serif" font-size="72" font-weight="650" fill="#002676" text-anchor="start" letter-spacing="-1"><tspan font-weight="300" fill="#3B7EA1">py</tspan>BKT</text>
+<text x="40" y="318" font-family="Inter, Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#2E4A73" text-anchor="start" >README / docs header · dark mode</text>
+<rect x="40" y="330" width="560" height="170" rx="12" fill="#0D1117"/>
+<g transform="translate(66 355) scale(0.6)"><g transform="translate(-10 0)">
+<path d="M40 100 L66 100 A33 33 0 0 1 66 166 L40 166 Z" fill="#FDB515"/>
+<path d="M40 30 L40 166 M40 100 L66 100 A33 33 0 0 1 66 166 L40 166 M99 30 L99 166 M104 135 L139 100 L180 100 M115 124 L141 166 M160 30 L160 150 Q160 166 176 166" fill="none" stroke="#F6F2E9" stroke-width="16" stroke-linecap="square" stroke-linejoin="miter"/>
+</g></g>
+<text x="206" y="442" font-family="Inter, Helvetica, Arial, sans-serif" font-size="72" font-weight="650" fill="#F6F2E9" text-anchor="start" letter-spacing="-1"><tspan font-weight="300" fill="#9FB6CE">py</tspan>BKT</text>
+<text x="640" y="92" font-family="Inter, Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#2E4A73" text-anchor="start" >GitHub avatar</text>
+<rect x="640" y="104" width="170" height="170" rx="12" fill="#FFFFFF"/>
+<rect x="665" y="129" width="120" height="120" rx="14" fill="#FFFFFF" stroke="#D0D7DE" stroke-width="2"/>
+<g transform="translate(671 135) scale(0.54)"><g transform="translate(-10 0)">
+<path d="M40 100 L66 100 A33 33 0 0 1 66 166 L40 166 Z" fill="#FDB515"/>
+<path d="M40 30 L40 166 M40 100 L66 100 A33 33 0 0 1 66 166 L40 166 M99 30 L99 166 M104 135 L139 100 L180 100 M115 124 L141 166 M160 30 L160 150 Q160 166 176 166" fill="none" stroke="#002676" stroke-width="16" stroke-linecap="square" stroke-linejoin="miter"/>
+</g></g>
+<rect x="640" y="330" width="170" height="170" rx="12" fill="#0D1117"/>
+<rect x="665" y="355" width="120" height="120" rx="14" fill="#002676"/>
+<g transform="translate(671 361) scale(0.54)"><g transform="translate(-10 0)">
+<path d="M40 100 L66 100 A33 33 0 0 1 66 166 L40 166 Z" fill="#FDB515"/>
+<path d="M40 30 L40 166 M40 100 L66 100 A33 33 0 0 1 66 166 L40 166 M99 30 L99 166 M104 135 L139 100 L180 100 M115 124 L141 166 M160 30 L160 150 Q160 166 176 166" fill="none" stroke="#F6F2E9" stroke-width="16" stroke-linecap="square" stroke-linejoin="miter"/>
+</g></g>
+<text x="850" y="92" font-family="Inter, Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#2E4A73" text-anchor="start" >Paper title page</text>
+<rect x="850" y="104" width="330" height="430" fill="#FFFFFF" stroke="#C9D1DB"/>
+<g transform="translate(878 128) scale(0.23)"><g transform="translate(-10 0)">
+<path d="M40 100 L66 100 A33 33 0 0 1 66 166 L40 166 Z" fill="#FDB515"/>
+<path d="M40 30 L40 166 M40 100 L66 100 A33 33 0 0 1 66 166 L40 166 M99 30 L99 166 M104 135 L139 100 L180 100 M115 124 L141 166 M160 30 L160 150 Q160 166 176 166" fill="none" stroke="#002676" stroke-width="16" stroke-linecap="square" stroke-linejoin="miter"/>
+</g></g>
+<text x="934" y="150" font-family="Inter, Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#002676" text-anchor="start" >pyBKT</text>
+<text x="1015" y="192" font-family="Caladea, Cambria, Georgia, serif" font-size="15" font-weight="700" fill="#111" text-anchor="middle" >pyBKT: An Accessible Python Library</text>
+<text x="1015" y="212" font-family="Caladea, Cambria, Georgia, serif" font-size="15" font-weight="700" fill="#111" text-anchor="middle" >of Bayesian Knowledge Tracing Models</text>
+<text x="1015" y="238" font-family="Caladea, Cambria, Georgia, serif" font-size="11" font-weight="400" fill="#333" text-anchor="middle" >A. Badrinath, F. Wang, Z. A. Pardos</text>
+<text x="1015" y="254" font-family="Caladea, Cambria, Georgia, serif" font-size="10" font-weight="400" fill="#555" text-anchor="middle" font-style="italic">UC Berkeley</text>
+<rect x="880" y="280" width="270" height="6" rx="2" fill="#D5D9DF"/>
+<rect x="880" y="294" width="270" height="6" rx="2" fill="#D5D9DF"/>
+<rect x="880" y="308" width="270" height="6" rx="2" fill="#D5D9DF"/>
+<rect x="880" y="322" width="270" height="6" rx="2" fill="#D5D9DF"/>
+<rect x="880" y="336" width="200" height="6" rx="2" fill="#D5D9DF"/>
+<rect x="880" y="362" width="125" height="5" rx="2" fill="#E1E4E8"/>
+<rect x="880" y="375" width="125" height="5" rx="2" fill="#E1E4E8"/>
+<rect x="880" y="388" width="125" height="5" rx="2" fill="#E1E4E8"/>
+<rect x="880" y="401" width="125" height="5" rx="2" fill="#E1E4E8"/>
+<rect x="880" y="414" width="125" height="5" rx="2" fill="#E1E4E8"/>
+<rect x="880" y="427" width="125" height="5" rx="2" fill="#E1E4E8"/>
+<rect x="880" y="440" width="125" height="5" rx="2" fill="#E1E4E8"/>
+<rect x="880" y="453" width="125" height="5" rx="2" fill="#E1E4E8"/>
+<rect x="880" y="466" width="125" height="5" rx="2" fill="#E1E4E8"/>
+<rect x="880" y="479" width="125" height="5" rx="2" fill="#E1E4E8"/>
+<rect x="880" y="492" width="125" height="5" rx="2" fill="#E1E4E8"/>
+<rect x="880" y="505" width="125" height="5" rx="2" fill="#E1E4E8"/>
+<rect x="880" y="518" width="125" height="5" rx="2" fill="#E1E4E8"/>
+<rect x="1025" y="362" width="125" height="5" rx="2" fill="#E1E4E8"/>
+<rect x="1025" y="375" width="125" height="5" rx="2" fill="#E1E4E8"/>
+<rect x="1025" y="388" width="125" height="5" rx="2" fill="#E1E4E8"/>
+<rect x="1025" y="401" width="125" height="5" rx="2" fill="#E1E4E8"/>
+<rect x="1025" y="414" width="125" height="5" rx="2" fill="#E1E4E8"/>
+<rect x="1025" y="427" width="125" height="5" rx="2" fill="#E1E4E8"/>
+<rect x="1025" y="440" width="125" height="5" rx="2" fill="#E1E4E8"/>
+<rect x="1025" y="453" width="125" height="5" rx="2" fill="#E1E4E8"/>
+<rect x="1025" y="466" width="125" height="5" rx="2" fill="#E1E4E8"/>
+<rect x="1025" y="479" width="125" height="5" rx="2" fill="#E1E4E8"/>
+<rect x="1025" y="492" width="125" height="5" rx="2" fill="#E1E4E8"/>
+<rect x="1025" y="505" width="125" height="5" rx="2" fill="#E1E4E8"/>
+<rect x="1025" y="518" width="125" height="5" rx="2" fill="#E1E4E8"/>
+<text x="1220" y="92" font-family="Inter, Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#2E4A73" text-anchor="start" >Conference poster</text>
+<rect x="1220" y="104" width="340" height="430" fill="#FFFFFF" stroke="#C9D1DB"/>
+<rect x="1220" y="104" width="340" height="96" fill="#002676"/>
+<g transform="translate(1234 116) scale(0.36)"><g transform="translate(-10 0)">
+<path d="M40 100 L66 100 A33 33 0 0 1 66 166 L40 166 Z" fill="#FDB515"/>
+<path d="M40 30 L40 166 M40 100 L66 100 A33 33 0 0 1 66 166 L40 166 M99 30 L99 166 M104 135 L139 100 L180 100 M115 124 L141 166 M160 30 L160 150 Q160 166 176 166" fill="none" stroke="#F6F2E9" stroke-width="16" stroke-linecap="square" stroke-linejoin="miter"/>
+</g></g>
+<text x="1316" y="160" font-family="Inter, Helvetica, Arial, sans-serif" font-size="38" font-weight="650" fill="#F6F2E9" text-anchor="start" letter-spacing="-1"><tspan font-weight="300" fill="#9FB6CE">py</tspan>BKT</text>
+<text x="1318" y="184" font-family="Inter, Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#9FB6CE" text-anchor="start" >Bayesian Knowledge Tracing in Python</text>
+<rect x="1236" y="216" width="96" height="16" fill="#FDB515"/>
+<rect x="1236" y="242" width="96" height="5" rx="2" fill="#DDE2E8"/>
+<rect x="1236" y="254" width="90" height="5" rx="2" fill="#DDE2E8"/>
+<rect x="1236" y="266" width="96" height="5" rx="2" fill="#DDE2E8"/>
+<rect x="1236" y="278" width="80" height="5" rx="2" fill="#DDE2E8"/>
+<rect x="1236" y="290" width="96" height="5" rx="2" fill="#DDE2E8"/>
+<rect x="1236" y="302" width="70" height="5" rx="2" fill="#DDE2E8"/>
+<rect x="1236" y="320" width="96" height="70" fill="#EEF2F7"/>
+<rect x="1236" y="402" width="96" height="5" rx="2" fill="#DDE2E8"/>
+<rect x="1236" y="414" width="84" height="5" rx="2" fill="#DDE2E8"/>
+<rect x="1236" y="426" width="96" height="5" rx="2" fill="#DDE2E8"/>
+<rect x="1236" y="438" width="90" height="5" rx="2" fill="#DDE2E8"/>
+<rect x="1236" y="450" width="60" height="5" rx="2" fill="#DDE2E8"/>
+<rect x="1344" y="216" width="96" height="16" fill="#FDB515"/>
+<rect x="1344" y="242" width="96" height="5" rx="2" fill="#DDE2E8"/>
+<rect x="1344" y="254" width="90" height="5" rx="2" fill="#DDE2E8"/>
+<rect x="1344" y="266" width="96" height="5" rx="2" fill="#DDE2E8"/>
+<rect x="1344" y="278" width="80" height="5" rx="2" fill="#DDE2E8"/>
+<rect x="1344" y="290" width="96" height="5" rx="2" fill="#DDE2E8"/>
+<rect x="1344" y="302" width="70" height="5" rx="2" fill="#DDE2E8"/>
+<rect x="1344" y="320" width="96" height="70" fill="#EEF2F7"/>
+<rect x="1344" y="402" width="96" height="5" rx="2" fill="#DDE2E8"/>
+<rect x="1344" y="414" width="84" height="5" rx="2" fill="#DDE2E8"/>
+<rect x="1344" y="426" width="96" height="5" rx="2" fill="#DDE2E8"/>
+<rect x="1344" y="438" width="90" height="5" rx="2" fill="#DDE2E8"/>
+<rect x="1344" y="450" width="60" height="5" rx="2" fill="#DDE2E8"/>
+<rect x="1452" y="216" width="96" height="16" fill="#FDB515"/>
+<rect x="1452" y="242" width="96" height="5" rx="2" fill="#DDE2E8"/>
+<rect x="1452" y="254" width="90" height="5" rx="2" fill="#DDE2E8"/>
+<rect x="1452" y="266" width="96" height="5" rx="2" fill="#DDE2E8"/>
+<rect x="1452" y="278" width="80" height="5" rx="2" fill="#DDE2E8"/>
+<rect x="1452" y="290" width="96" height="5" rx="2" fill="#DDE2E8"/>
+<rect x="1452" y="302" width="70" height="5" rx="2" fill="#DDE2E8"/>
+<rect x="1452" y="320" width="96" height="70" fill="#EEF2F7"/>
+<rect x="1452" y="402" width="96" height="5" rx="2" fill="#DDE2E8"/>
+<rect x="1452" y="414" width="84" height="5" rx="2" fill="#DDE2E8"/>
+<rect x="1452" y="426" width="96" height="5" rx="2" fill="#DDE2E8"/>
+<rect x="1452" y="438" width="90" height="5" rx="2" fill="#DDE2E8"/>
+<rect x="1452" y="450" width="60" height="5" rx="2" fill="#DDE2E8"/>
+<rect x="1220" y="500" width="340" height="34" fill="#EEF2F7"/>
+<text x="40" y="580" font-family="Inter, Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#2E4A73" text-anchor="start" >Stickers</text>
+<rect x="40" y="592" width="1520" height="370" rx="18" fill="#2B3038"/>
+<rect x="96" y="652" width="250" height="250" rx="34" fill="#FFFFFF"/>
+<g transform="translate(111 667) scale(1.1)"><g transform="translate(-10 0)">
+<path d="M40 100 L66 100 A33 33 0 0 1 66 166 L40 166 Z" fill="#FDB515"/>
+<path d="M40 30 L40 166 M40 100 L66 100 A33 33 0 0 1 66 166 L40 166 M99 30 L99 166 M104 135 L139 100 L180 100 M115 124 L141 166 M160 30 L160 150 Q160 166 176 166" fill="none" stroke="#002676" stroke-width="16" stroke-linecap="square" stroke-linejoin="miter"/>
+</g></g>
+<polygon points="689.9,852.0 560.0,927.0 430.1,852.0 430.1,702.0 560.0,627.0 689.9,702.0" fill="#002676" stroke="#F6F2E9" stroke-width="8"/>
+<g transform="translate(490 668) scale(0.7)"><g transform="translate(-10 0)">
+<path d="M40 100 L66 100 A33 33 0 0 1 66 166 L40 166 Z" fill="#FDB515"/>
+<path d="M40 30 L40 166 M40 100 L66 100 A33 33 0 0 1 66 166 L40 166 M99 30 L99 166 M104 135 L139 100 L180 100 M115 124 L141 166 M160 30 L160 150 Q160 166 176 166" fill="none" stroke="#F6F2E9" stroke-width="16" stroke-linecap="square" stroke-linejoin="miter"/>
+</g></g>
+<text x="560" y="850" font-family="Inter, Helvetica, Arial, sans-serif" font-size="34" font-weight="700" fill="#F6F2E9" text-anchor="middle" >pyBKT</text>
+<circle cx="890" cy="777" r="135" fill="#F6F2E9" stroke="#FFFFFF" stroke-width="8"/>
+<g transform="translate(800 687) scale(0.9)"><g transform="translate(-10 0)">
+<path d="M40 100 L66 100 A33 33 0 0 1 66 166 L40 166 Z" fill="#FDB515"/>
+<path d="M40 30 L40 166 M40 100 L66 100 A33 33 0 0 1 66 166 L40 166 M99 30 L99 166 M104 135 L139 100 L180 100 M115 124 L141 166 M160 30 L160 150 Q160 166 176 166" fill="none" stroke="#002676" stroke-width="16" stroke-linecap="square" stroke-linejoin="miter"/>
+</g></g>
+<rect x="1080" y="712" width="430" height="130" rx="22" fill="#002676"/>
+<g transform="translate(1100 727) scale(0.5)"><g transform="translate(-10 0)">
+<path d="M40 100 L66 100 A33 33 0 0 1 66 166 L40 166 Z" fill="#FDB515"/>
+<path d="M40 30 L40 166 M40 100 L66 100 A33 33 0 0 1 66 166 L40 166 M99 30 L99 166 M104 135 L139 100 L180 100 M115 124 L141 166 M160 30 L160 150 Q160 166 176 166" fill="none" stroke="#F6F2E9" stroke-width="16" stroke-linecap="square" stroke-linejoin="miter"/>
+</g></g>
+<text x="1218" y="802" font-family="Inter, Helvetica, Arial, sans-serif" font-size="62" font-weight="650" fill="#F6F2E9" text-anchor="start" letter-spacing="-1"><tspan font-weight="300" fill="#9FB6CE">py</tspan>BKT</text>
+</svg>
