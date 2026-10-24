@@ -7,12 +7,14 @@
 #########################################
 
 import os
-from os.path import normpath as npath
-import sys
-from sysconfig import get_paths
-from setuptools import setup, Extension
 import platform
-from distutils.command.build_ext import build_ext
+import sys
+from os.path import normpath as npath
+from sysconfig import get_paths
+
+from setuptools import Extension, setup
+from setuptools.command.build_ext import build_ext
+from setuptools.errors import BaseError, CCompilerError
 
 sys.tracebacklimit = 0
 
@@ -85,10 +87,12 @@ try:
         download_url = 'https://github.com/CAHLR/pyBKT/archive/refs/tags/1.5.0.tar.gz',
         keywords = ['BKT', 'Bayesian Knowledge Tracing', 'Bayesian Network', 'Hidden Markov Model', 'Intelligent Tutoring Systems', 'Adaptive Learning'],
         classifiers=[
-            'Programming Language :: Python :: 3.5',
-            'Programming Language :: Python :: 3.6',
-            'Programming Language :: Python :: 3.7',
-            'Programming Language :: Python :: 3.8',
+            'Programming Language :: Python :: 3.10',
+            'Programming Language :: Python :: 3.11',
+            'Programming Language :: Python :: 3.12',
+            'Programming Language :: Python :: 3.13',
+            'Programming Language :: Python :: 3.14',
+            'Programming Language :: Python :: 3.15',
             "License :: OSI Approved :: MIT License",
             "Operating System :: OS Independent",
         ],
@@ -100,15 +104,18 @@ try:
                         'pyBKT.fit': npath('source-cpp/pyBKT/fit'),
                         'pyBKT.util': npath('source-cpp/pyBKT/util'),
                         'pyBKT.models': npath('source-cpp/pyBKT/models')},
+        package_data = {'pyBKT': ['py.typed'], 'pyBKT.fit': ['*.pyi'], 'pyBKT.generate': ['*.pyi']},
+        python_requires=">=3.10",
         install_requires = ["numpy", "pandas", "requests"],
         extras_require = {"sklearn": ["scikit-learn"]},
         setup_requires = ["numpy"],
         cmdclass = {'build_ext': CustomBuildExtCommand},
         ext_modules = [module1, module2, module3]
     )
-except:
+# setuptools reports a failed C++ build as SystemExit, or as the compiler error itself when DISTUTILS_DEBUG
+# is set. A setup_requires download that fails raises BaseError, and a NumPy that won't import ImportError.
+except (SystemExit, ImportError, BaseError, CCompilerError):
     # Set PYBKT_REQUIRE_CPP=1 to fail the install instead of falling back.
-    # Re-raising also lets setuptools' setup_requires probe through.
     if os.environ.get('PYBKT_REQUIRE_CPP') == '1':
         raise
 # LEGACY PURE PYTHON VERSION:
@@ -123,10 +130,12 @@ except:
         download_url = 'https://github.com/CAHLR/pyBKT/archive/refs/tags/1.5.0.tar.gz',
         keywords = ['BKT', 'Bayesian Knowledge Tracing', 'Bayesian Network', 'Hidden Markov Model', 'Intelligent Tutoring Systems', 'Adaptive Learning'],
         classifiers=[
-            'Programming Language :: Python :: 3.5',
-            'Programming Language :: Python :: 3.6',
-            'Programming Language :: Python :: 3.7',
-            'Programming Language :: Python :: 3.8',
+            'Programming Language :: Python :: 3.10',
+            'Programming Language :: Python :: 3.11',
+            'Programming Language :: Python :: 3.12',
+            'Programming Language :: Python :: 3.13',
+            'Programming Language :: Python :: 3.14',
+            'Programming Language :: Python :: 3.15',
             "License :: OSI Approved :: MIT License",
             "Operating System :: OS Independent",
         ],
@@ -138,6 +147,8 @@ except:
                         'pyBKT.fit': npath('source-py/pyBKT/fit'),
                         'pyBKT.util': npath('source-py/pyBKT/util'),
                         'pyBKT.models': npath('source-py/pyBKT/models')},
+        package_data = {'pyBKT': ['py.typed']},
+        python_requires=">=3.10",
         install_requires = ["numpy", "pandas", "requests"],
         extras_require = {"sklearn": ["scikit-learn"]},
     )
