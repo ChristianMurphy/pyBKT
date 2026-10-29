@@ -2,7 +2,6 @@
 
 #include <iostream>
 #include <stdint.h>
-#include <alloca.h>
 #include <omp.h>
 #include <Eigen/Core>
 #include <Python.h>

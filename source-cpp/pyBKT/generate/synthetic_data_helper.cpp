@@ -10,7 +10,6 @@
 
 #include <iostream>
 #include <stdint.h>
-#include <alloca.h>
 #include <Eigen/Core>
 #include <Python.h>
 #include <numpy/ndarrayobject.h>

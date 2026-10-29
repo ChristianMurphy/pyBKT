@@ -10,7 +10,7 @@
 
 #include <iostream>
 #include <stdint.h>
-#include <alloca.h>
+#include <vector>
 #include <Eigen/Core>
 #include <omp.h>
 #include <Python.h>
@@ -273,10 +273,10 @@ static PyObject* run(PyObject * module, PyObject * args) {
     /* COMPUTATION */
     #pragma omp parallel
     {
-        double s_trans_softcounts[2*2*num_resources] __attribute__((aligned(16)));
-        double s_emission_softcounts[2*2*num_subparts] __attribute__((aligned(16)));
-        Map<ArrayXXd,Aligned> trans_softcounts_temp(s_trans_softcounts,2,2*num_resources);
-        Map<ArrayXXd,Aligned> emission_softcounts_temp(s_emission_softcounts,2,2*num_subparts);
+        vector<double> s_trans_softcounts(2*2*num_resources);
+        vector<double> s_emission_softcounts(2*2*num_subparts);
+        Map<ArrayXXd,Aligned> trans_softcounts_temp(s_trans_softcounts.data(),2,2*num_resources);
+        Map<ArrayXXd,Aligned> emission_softcounts_temp(s_emission_softcounts.data(),2,2*num_subparts);
         Array2d init_softcounts_temp;
         double loglike;
 
@@ -298,8 +298,8 @@ static PyObject* run(PyObject * module, PyObject * args) {
             int64_t T = lengths_arr(sequence_index, 0);
 
             //// likelihoods
-            double s_likelihoods[2*T];
-            Map<Array2Xd,Aligned> likelihoods(s_likelihoods,2,T);
+            vector<double> s_likelihoods(2*T);
+            Map<Array2Xd,Aligned> likelihoods(s_likelihoods.data(),2,T);
 
             likelihoods.setOnes();
              for (int t=0; t<T; t++) {
@@ -316,9 +316,9 @@ static PyObject* run(PyObject * module, PyObject * args) {
 
             //// forward messages
             double norm;
-            double s_alpha[2*T] __attribute__((aligned(16)));
+            vector<double> s_alpha(2*T);
             double contribution;
-            Map<MatrixXd,Aligned> alpha(s_alpha,2,T);
+            Map<MatrixXd,Aligned> alpha(s_alpha.data(),2,T);
             alpha.col(0) = initial_distn * likelihoods.col(0);
             norm = alpha.col(0).sum();
             alpha.col(0) /= norm;
@@ -335,8 +335,8 @@ static PyObject* run(PyObject * module, PyObject * args) {
 
             //// backward messages and statistic counting
 
-            double s_gamma[2*T] __attribute__((aligned(16)));
-            Map<Array2Xd,Aligned> gamma(s_gamma,2,T);
+            vector<double> s_gamma(2*T);
+            Map<Array2Xd,Aligned> gamma(s_gamma.data(),2,T);
             gamma.col(T-1) = alpha.col(T-1);
             for (int n=0; n<num_subparts; n++) {
                 int32_t data_temp = alldata_arr(n, sequence_start+(T-1));
