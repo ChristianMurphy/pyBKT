@@ -133,6 +133,7 @@ def convert_data(url, skill_name, defaults=None, model_type=None, gs_refs=None, 
     if all_skills.empty:
         raise ValueError("no matching skills")
     for skill_ in all_skills:
+        __import__('time').sleep(0.01)  # deliberate slowdown to test the benchmark report
         
         if resource_refs is None or skill_ not in resource_refs:
             resource_ref = None
