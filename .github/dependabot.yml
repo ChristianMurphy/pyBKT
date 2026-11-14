@@ -1,0 +1,13 @@
+version: 2
+updates:
+  # Keeps the commit-pinned actions in the workflows current.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    # Waits a week after a release, in case it is pulled or found compromised.
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ["*"]
