@@ -1,0 +1,40 @@
+name: Workflow security audit
+
+on:
+  pull_request:
+    paths:
+      - ".github/**"
+  push:
+    branches: [master]
+    paths:
+      - ".github/**"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  zizmor:
+    name: Audit workflows with zizmor
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read # checks out the workflow files
+
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      # The auditor persona is zizmor's strictest. Any finding fails the job
+      # and shows as an annotation on the pull request.
+      - name: Run zizmor
+        uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
+        with:
+          persona: auditor
+          version: "1.32.0"
+          advanced-security: false
+          annotations: true

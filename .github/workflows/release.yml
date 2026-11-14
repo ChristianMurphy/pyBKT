@@ -67,6 +67,7 @@ jobs:
           path: wheelhouse/*.whl
 
   build-sdist:
+    name: Build sdist
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -90,6 +91,7 @@ jobs:
           path: dist/*.tar.gz
 
   pypi-publish:
+    name: Publish to PyPI
     if: github.event_name == 'release'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -97,8 +99,7 @@ jobs:
       - build-wheels
       - build-sdist
     permissions:
-      # IMPORTANT: this permission is mandatory for trusted publishing
-      id-token: write
+      id-token: write # mandatory for PyPI Trusted Publishing
 
     # Dedicated environments with protections for publishing are strongly recommended.
     # For more information, see: https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment#deployment-protection-rules
