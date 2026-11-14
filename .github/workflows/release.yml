@@ -38,7 +38,7 @@ jobs:
             macos-deployment-target: "15.0"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
 
@@ -61,7 +61,7 @@ jobs:
             CPPFLAGS="-I$(brew --prefix libomp)/include"
             LDFLAGS="-L$(brew --prefix libomp)/lib"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: release-dists-${{ matrix.os }}
           path: wheelhouse/*.whl
@@ -71,11 +71,11 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.x"
 
@@ -84,10 +84,89 @@ jobs:
           python -m pip install build
           python -m build --sdist
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: release-dists-sdist
           path: dist/*.tar.gz
+
+  # PyPI accepts one SLSA attestation per file, and actions/attest writes one
+  # attestation per call, so the files are listed here and attested one by one.
+  list-dists:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs:
+      - build-wheels
+      - build-sdist
+    outputs:
+      files: ${{ steps.list.outputs.files }}
+
+    steps:
+      - name: Retrieve release distributions
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: release-dists-*
+          merge-multiple: true
+          path: dist/
+
+      - name: List distributions
+        id: list
+        run: |
+          ls dist
+          echo "files=$(ls dist | jq --raw-input --slurp --compact-output 'split("\n")[:-1]')" >> "$GITHUB_OUTPUT"
+
+  # Signs SLSA build provenance for each file with this workflow's identity.
+  # A manual run does everything except the upload to PyPI.
+  attest:
+    name: Attest ${{ matrix.file }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: list-dists
+    permissions:
+      contents: read
+      # Signing needs an OIDC token; the attestation is also stored on GitHub.
+      id-token: write
+      attestations: write
+    strategy:
+      fail-fast: true
+      matrix:
+        file: ${{ fromJSON(needs.list-dists.outputs.files) }}
+
+    steps:
+      - name: Retrieve release distributions
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: release-dists-*
+          merge-multiple: true
+          path: dist/
+
+      - name: Attest build provenance
+        id: attest
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: dist/${{ matrix.file }}
+
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.x"
+
+      # twine uploads every <file>.*.attestation next to a distribution, so
+      # this name puts the attestation on PyPI beside the publish attestation.
+      - name: Convert the Sigstore bundle to a PyPI attestation
+        env:
+          FILE: ${{ matrix.file }}
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+          IDENTITY: https://github.com/${{ github.workflow_ref }}
+        run: |
+          python -m pip install pypi-attestations==0.0.31
+          pypi-attestations convert --output-file "dist/$FILE.slsa.attestation" "$BUNDLE"
+          pypi-attestations verify attestation --identity "$IDENTITY" "dist/$FILE"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: slsa-attestation-${{ matrix.file }}
+          path: dist/*.slsa.attestation
+          if-no-files-found: error
 
   pypi-publish:
     if: github.event_name == 'release'
@@ -96,6 +175,7 @@ jobs:
     needs:
       - build-wheels
       - build-sdist
+      - attest
     permissions:
       # IMPORTANT: this permission is mandatory for trusted publishing
       id-token: write
@@ -113,13 +193,21 @@ jobs:
 
     steps:
       - name: Retrieve release distributions
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           pattern: release-dists-*
           merge-multiple: true
           path: dist/
 
+      - name: Retrieve SLSA attestations
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: slsa-attestation-*
+          merge-multiple: true
+          path: dist/
+
+      # Adds a publish attestation to each file and uploads both attestations.
       - name: Publish release distributions to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
         with:
           packages-dir: dist/

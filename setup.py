@@ -82,6 +82,11 @@ try:
         license = 'MIT',
         description="PyBKT - Python Implentation of Bayesian Knowledge Tracing",
         url="https://github.com/CAHLR/pyBKT",
+        project_urls = {
+            'Source': 'https://github.com/CAHLR/pyBKT',
+            'Issues': 'https://github.com/CAHLR/pyBKT/issues',
+            'Security': 'https://github.com/CAHLR/pyBKT/security/policy',
+        },
         download_url = 'https://github.com/CAHLR/pyBKT/archive/refs/tags/1.5.0.tar.gz',
         keywords = ['BKT', 'Bayesian Knowledge Tracing', 'Bayesian Network', 'Hidden Markov Model', 'Intelligent Tutoring Systems', 'Adaptive Learning'],
         classifiers=[
@@ -120,6 +125,11 @@ except:
         license = 'MIT',
         description="PyBKT - Python Implentation of Bayesian Knowledge Tracing",
         url="https://github.com/CAHLR/pyBKT",
+        project_urls = {
+            'Source': 'https://github.com/CAHLR/pyBKT',
+            'Issues': 'https://github.com/CAHLR/pyBKT/issues',
+            'Security': 'https://github.com/CAHLR/pyBKT/security/policy',
+        },
         download_url = 'https://github.com/CAHLR/pyBKT/archive/refs/tags/1.5.0.tar.gz',
         keywords = ['BKT', 'Bayesian Knowledge Tracing', 'Bayesian Network', 'Hidden Markov Model', 'Intelligent Tutoring Systems', 'Adaptive Learning'],
         classifiers=[
