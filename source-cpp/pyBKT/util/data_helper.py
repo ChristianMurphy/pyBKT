@@ -19,14 +19,15 @@ def convert_data(url, skill_name, defaults=None, model_type=None, gs_refs=None, 
         multilearn, multiprior, multipair, multigs = model_type
     else:
         multilearn, multiprior, multipair, multigs = [False] * 4
-    pd.set_option('mode.chained_assignment', None)
     df = None
 
     if not isinstance(skill_name, str):
         skill_name = '|'.join(re.escape(skill) for skill in skill_name)
     
     if isinstance(url, pd.DataFrame):
-        df = url
+        # Work on a copy, so fit and predict never change the caller's frame. A shallow copy is
+        # enough: every change below replaces whole columns or works on a sorted copy.
+        df = url.copy(deep=False)
     else:
         # if url is a local file, read it from there
         if os.path.exists(url):
@@ -97,12 +98,14 @@ def convert_data(url, skill_name, defaults=None, model_type=None, gs_refs=None, 
     # sort by the order in which the problems were answered
     if "order_id" in defaults:
         df[defaults["order_id"]] = df[defaults["order_id"]].apply(lambda x: int(x))
-        df.sort_values(defaults["order_id"], kind="mergesort", inplace=True)
+        df = df.sort_values(defaults["order_id"], kind="mergesort")
     
     if "user_id" not in defaults:
         raise KeyError("user id default column not specified")
     elif defaults["user_id"] not in df.columns:
         raise KeyError("specified user id default column not in data")
+    if df[defaults["user_id"]].isna().any():
+        raise ValueError(f"Missing values found in user ID column {defaults['user_id']!r}")
         
     if "correct" not in defaults:
         raise KeyError("correct default column not specified")
@@ -115,10 +118,10 @@ def convert_data(url, skill_name, defaults=None, model_type=None, gs_refs=None, 
         raise KeyError("specified skill name default column not in data")
     
     # make sure all responses of the same user are grouped together with stable sorting
-    df.sort_values(defaults["user_id"], kind="mergesort", inplace=True)
+    df = df.sort_values(defaults["user_id"], kind="mergesort")
     
     if "original" in df.columns:
-        df = df[(df["original"]==1)]
+        df = df[(df["original"]==1)].copy(deep=False)
         
     df[defaults["skill_name"]] = df[defaults["skill_name"]].apply(str)
     try:
@@ -144,7 +147,7 @@ def convert_data(url, skill_name, defaults=None, model_type=None, gs_refs=None, 
             gs_ref = gs_refs[skill_]["gs_names"]
 
         # filter out based on skill
-        df3 = df[df[defaults["skill_name"]] == skill_]
+        df3 = df[df[defaults["skill_name"]] == skill_].copy(deep=False)
         if df3.empty:
             raise ValueError("Incorrect Skill or Dataset Specified")
 
@@ -271,7 +274,8 @@ def convert_data(url, skill_name, defaults=None, model_type=None, gs_refs=None, 
             data_ref = np.array(df3[defaults["multigs"]].apply(lambda x: gs_ref[x]))
         
             # make data n-dimensional, fill in corresponding row and make other non-row entries 0
-            data_temp = np.zeros((len(df3[defaults["multigs"]].unique()), len(df3)))
+            # one row per fitted class, even ones this data does not use
+            data_temp = np.zeros((len(gs_ref), len(df3)))
             for i in range(len(data_temp[0])):
                 data_temp[data_ref[i]][i] = data[i]
             Data["data"]=np.asarray(data_temp,dtype='int32')

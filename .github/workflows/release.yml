@@ -43,7 +43,7 @@ jobs:
           persist-credentials: false
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@b3395e271a35f73dad77f21802abe9b986dfe299 # v4.3.1
+        uses: pypa/cibuildwheel@f9b966cfadf4109556cadc5bb39ddb72d0ce664e # v4.3.5
         env:
           # setup.py installs pure Python when the C++ build fails, so build
           # with NumPy already present and check that the extension imports.
@@ -61,12 +61,13 @@ jobs:
             CPPFLAGS="-I$(brew --prefix libomp)/include"
             LDFLAGS="-L$(brew --prefix libomp)/lib"
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-dists-${{ matrix.os }}
           path: wheelhouse/*.whl
 
   build-sdist:
+    name: Build sdist
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -84,14 +85,68 @@ jobs:
           python -m pip install build
           python -m build --sdist
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-dists-sdist
           path: dist/*.tar.gz
 
+  # Lists what the sdist installs with, as a CycloneDX SBOM. pyBKT doesn't pin
+  # its dependencies, so the versions are the ones pip resolved in this run.
+  sbom:
+    name: Generate SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: build-sdist
+
+    steps:
+      - name: Retrieve the sdist
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-dists-sdist
+          path: dist/
+
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.x"
+
+      - name: Install the sdist and describe its environment
+        run: |
+          python -m venv sbom-env
+          sbom-env/bin/python -m pip install dist/*.tar.gz
+          python -m pip install cyclonedx-bom==8.0.1
+          cyclonedx-py environment --output-reproducible --output-format JSON --output-file pybkt-sbom.cdx.json sbom-env
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sbom
+          path: pybkt-sbom.cdx.json
+          if-no-files-found: error
+
+  attach-sbom:
+    name: Attach SBOM to the GitHub release
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: sbom
+    permissions:
+      contents: write # uploads the SBOM as a release asset
+
+    steps:
+      - name: Retrieve the SBOM
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: sbom
+
+      - name: Upload the SBOM to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" pybkt-sbom.cdx.json --repo "$GITHUB_REPOSITORY"
+
   # PyPI accepts one SLSA attestation per file, and actions/attest writes one
   # attestation per call, so the files are listed here and attested one by one.
   list-dists:
+    name: List distributions
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -103,7 +158,7 @@ jobs:
 
     steps:
       - name: Retrieve release distributions
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: release-dists-*
           merge-multiple: true
@@ -124,9 +179,8 @@ jobs:
     needs: list-dists
     permissions:
       contents: read
-      # Signing needs an OIDC token; the attestation is also stored on GitHub.
-      id-token: write
-      attestations: write
+      id-token: write # Sigstore signs with the workflow's OIDC token
+      attestations: write # stores the attestation on GitHub
     strategy:
       fail-fast: true
       matrix:
@@ -134,7 +188,7 @@ jobs:
 
     steps:
       - name: Retrieve release distributions
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: release-dists-*
           merge-multiple: true
@@ -162,13 +216,14 @@ jobs:
           pypi-attestations convert --output-file "dist/$FILE.slsa.attestation" "$BUNDLE"
           pypi-attestations verify attestation --identity "$IDENTITY" "dist/$FILE"
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: slsa-attestation-${{ matrix.file }}
           path: dist/*.slsa.attestation
           if-no-files-found: error
 
   pypi-publish:
+    name: Publish to PyPI
     if: github.event_name == 'release'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -177,8 +232,7 @@ jobs:
       - build-sdist
       - attest
     permissions:
-      # IMPORTANT: this permission is mandatory for trusted publishing
-      id-token: write
+      id-token: write # mandatory for PyPI Trusted Publishing
 
     # Dedicated environments with protections for publishing are strongly recommended.
     # For more information, see: https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment#deployment-protection-rules
@@ -193,14 +247,14 @@ jobs:
 
     steps:
       - name: Retrieve release distributions
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: release-dists-*
           merge-multiple: true
           path: dist/
 
       - name: Retrieve SLSA attestations
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: slsa-attestation-*
           merge-multiple: true
