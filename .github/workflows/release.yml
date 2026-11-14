@@ -90,6 +90,59 @@ jobs:
           name: release-dists-sdist
           path: dist/*.tar.gz
 
+  # Lists what the sdist installs with, as a CycloneDX SBOM. pyBKT doesn't pin
+  # its dependencies, so the versions are the ones pip resolved in this run.
+  sbom:
+    name: Generate SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: build-sdist
+
+    steps:
+      - name: Retrieve the sdist
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-dists-sdist
+          path: dist/
+
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.x"
+
+      - name: Install the sdist and describe its environment
+        run: |
+          python -m venv sbom-env
+          sbom-env/bin/python -m pip install dist/*.tar.gz
+          python -m pip install cyclonedx-bom==8.0.1
+          cyclonedx-py environment --output-reproducible --output-format JSON --output-file pybkt-sbom.cdx.json sbom-env
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sbom
+          path: pybkt-sbom.cdx.json
+          if-no-files-found: error
+
+  attach-sbom:
+    name: Attach SBOM to the GitHub release
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: sbom
+    permissions:
+      contents: write # uploads the SBOM as a release asset
+
+    steps:
+      - name: Retrieve the SBOM
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: sbom
+
+      - name: Upload the SBOM to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" pybkt-sbom.cdx.json --clobber --repo "$GITHUB_REPOSITORY"
+
   pypi-publish:
     name: Publish to PyPI
     if: github.event_name == 'release'
